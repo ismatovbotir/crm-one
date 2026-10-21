@@ -195,8 +195,8 @@ return new class extends Migration
             $table->decimal('reserved', 15, 3)->default(0);
             $table->bigInteger('cost_minor')->nullable();
             $table->char('cost_currency', 3)->nullable();
-            $table->timestamp('as_of');
-            $table->timestamp('received_at');
+            $table->timestamp('as_of')->useCurrent();
+            $table->timestamp('received_at')->useCurrent();
             $this->ascii($table->char('last_seen_snapshot_id', 36)->nullable());
             $table->timestamps();
             $table->index(['warehouse_id', 'last_seen_snapshot_id'], 'item_stocks_wh_seen_index');

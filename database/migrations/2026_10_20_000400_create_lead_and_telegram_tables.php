@@ -87,7 +87,7 @@ return new class extends Migration
             $table->foreignId('lead_id')->constrained()->cascadeOnDelete();
             $table->foreignId('assignee_id')->nullable()->constrained('users')->nullOnDelete();
             $table->foreignId('created_by')->nullable()->constrained('users')->nullOnDelete();
-            $table->timestamp('due_at');
+            $table->timestamp('due_at')->useCurrent();
             $table->timestamp('remind_at')->nullable();
             $table->timestamp('reminded_at')->nullable();
             $table->string('note', 500)->nullable();
@@ -116,7 +116,7 @@ return new class extends Migration
             $table->string('bot_status', 20)->default('member');
             $table->unsignedInteger('member_count')->nullable();
             $table->timestamp('members_refreshed_at')->nullable();
-            $table->timestamp('first_seen_at');
+            $table->timestamp('first_seen_at')->useCurrent();
             $table->timestamp('last_message_at')->nullable();
             $table->foreignId('customer_id')->nullable()->constrained('partners')->nullOnDelete();
             $table->foreignId('lead_id')->nullable()->constrained()->nullOnDelete();
@@ -155,8 +155,8 @@ return new class extends Migration
             $table->foreignId('telegram_contact_id')->constrained()->cascadeOnDelete();
             $table->string('role', 20)->default('member');
             $table->string('source', 20);
-            $table->timestamp('first_seen_at');
-            $table->timestamp('last_seen_at');
+            $table->timestamp('first_seen_at')->useCurrent();
+            $table->timestamp('last_seen_at')->useCurrent();
             $table->timestamps();
             $table->index('telegram_contact_id');
             $table->unique(['telegram_chat_id', 'telegram_contact_id'], 'tg_chat_members_chat_contact_unique');
@@ -170,7 +170,7 @@ return new class extends Migration
             $table->string('kind', 20);
             $table->unsignedBigInteger('edit_date')->default(0);
             $table->foreignId('lead_id')->nullable()->constrained()->nullOnDelete();
-            $table->timestamp('received_at');
+            $table->timestamp('received_at')->useCurrent();
             $table->index('lead_id');
             $table->index('telegram_contact_id');
             $table->unique(['telegram_chat_id', 'message_id', 'kind', 'edit_date'], 'tg_messages_chat_msg_kind_edit_unique');
@@ -184,7 +184,7 @@ return new class extends Migration
             $table->string('username', 64)->nullable();
             $table->string('first_name', 120)->nullable();
             $table->string('phone', 20)->nullable();
-            $table->timestamp('linked_at');
+            $table->timestamp('linked_at')->useCurrent();
             $table->timestamp('blocked_at')->nullable();
             $table->timestamps();
             $table->timestamp('verified_at')->nullable();
@@ -204,7 +204,7 @@ return new class extends Migration
             $table->id();
             $table->foreignId('user_id')->constrained()->cascadeOnDelete();
             $table->char('token_hash', 64);
-            $table->timestamp('expires_at');
+            $table->timestamp('expires_at')->useCurrent();
             $table->timestamp('consumed_at')->nullable();
             $table->timestamps();
             $table->index('user_id');
@@ -213,7 +213,7 @@ return new class extends Migration
 
         Schema::create('telegram_updates', function (Blueprint $table) {
             $table->unsignedBigInteger('update_id');
-            $table->timestamp('received_at');
+            $table->timestamp('received_at')->useCurrent();
             $table->primary('update_id');
         });
 

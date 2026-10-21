@@ -22,7 +22,7 @@ return new class extends Migration
             $table->json('abilities');
             $table->json('allowed_ips')->nullable();
             $table->text('signing_secret')->nullable();
-            $table->timestamp('expires_at');
+            $table->timestamp('expires_at')->useCurrent();
             $table->timestamp('last_used_at')->nullable();
             $table->string('last_used_ip', 45)->nullable();
             $table->timestamp('revoked_at')->nullable();
@@ -65,7 +65,7 @@ return new class extends Migration
             $table->json('source')->nullable();
             $table->string('ip', 45)->nullable();
             $this->ascii($table->char('request_id', 36)->nullable());
-            $table->timestamp('received_at');
+            $table->timestamp('received_at')->useCurrent();
             $table->timestamp('processing_started_at')->nullable();
             $table->timestamp('processed_at')->nullable();
             $table->foreignId('reprocessed_by')->nullable()->constrained('users')->nullOnDelete();
@@ -79,7 +79,7 @@ return new class extends Migration
         Schema::create('inbound_batch_payloads', function (Blueprint $table) {
             $table->foreignId('inbound_batch_id')->constrained('inbound_batches')->cascadeOnDelete();
             $table->longText('payload');
-            $table->timestamp('created_at');
+            $table->timestamp('created_at')->useCurrent();
             $table->primary('inbound_batch_id');
             $table->index('created_at');
         });
@@ -92,7 +92,7 @@ return new class extends Migration
             $table->json('parts_processed')->nullable();
             $table->string('status', 15);
             $table->json('result')->nullable();
-            $table->timestamp('started_at');
+            $table->timestamp('started_at')->useCurrent();
             $table->timestamp('finalized_at')->nullable();
             $table->timestamps();
             $table->primary('id');
@@ -105,7 +105,7 @@ return new class extends Migration
             $table->foreignId('customer_id')->constrained('partners')->restrictOnDelete();
             $table->string('reason', 20);
             $table->foreignId('queued_by')->nullable()->constrained('users')->nullOnDelete();
-            $table->timestamp('queued_at');
+            $table->timestamp('queued_at')->useCurrent();
             $table->timestamp('first_delivered_at')->nullable();
             $table->timestamp('last_delivered_at')->nullable();
             $table->unsignedInteger('delivery_count')->default(0);
@@ -144,7 +144,7 @@ return new class extends Migration
             $table->string('posting_status', 10)->nullable();
             $table->timestamp('posting_updated_at')->nullable();
             $table->string('error', 255)->nullable();
-            $table->timestamp('occurred_at');
+            $table->timestamp('occurred_at')->useCurrent();
             $table->timestamp('created_at')->nullable();
             $table->index('event_type');
             $table->unique('event_id');
@@ -167,7 +167,7 @@ return new class extends Migration
             $table->string('error_code', 40)->nullable();
             $table->string('message', 255)->nullable();
             $table->string('ip', 45)->nullable();
-            $table->timestamp('created_at');
+            $table->timestamp('created_at')->useCurrent();
             $table->index('inbound_batch_id');
             $table->index('created_at');
             $table->index('request_id');

@@ -183,7 +183,7 @@ return new class extends Migration
             $table->string('selected_by_actor', 12);
             $table->foreignId('selected_by_user_id')->nullable()->constrained('users')->nullOnDelete();
             $table->string('channel', 12);
-            $table->timestamp('selected_at');
+            $table->timestamp('selected_at')->useCurrent();
             $table->unique('offer_line_id');
             $table->index('option_group_id');
             $table->index(['offer_id', 'option_group_id']);
@@ -202,7 +202,7 @@ return new class extends Migration
             $table->text('note')->nullable();
             $table->text('evidence_note')->nullable();
             $table->unsignedInteger('selection_revision')->default(0);
-            $table->timestamp('created_at');
+            $table->timestamp('created_at')->useCurrent();
             $table->index('offer_line_id');
             $table->index(['offer_id', 'created_at']);
         });
@@ -215,7 +215,7 @@ return new class extends Migration
             $table->json('reasons')->nullable();
             $table->string('status', 20);
             $table->foreignId('requested_by')->nullable()->constrained('users')->nullOnDelete();
-            $table->timestamp('requested_at');
+            $table->timestamp('requested_at')->useCurrent();
             $table->foreignId('decided_by')->nullable()->constrained('users')->nullOnDelete();
             $table->timestamp('decided_at')->nullable();
             $table->text('comment')->nullable();
@@ -231,11 +231,11 @@ return new class extends Migration
             $table->unsignedSmallInteger('version');
             $table->char('content_hash', 64);
             $table->json('payload');
-            $table->timestamp('sent_at');
+            $table->timestamp('sent_at')->useCurrent();
             $table->foreignId('sent_by')->nullable()->constrained('users')->nullOnDelete();
             $table->string('channel', 20)->nullable();
             $table->string('document_locale', 5)->nullable();
-            $table->timestamp('created_at');
+            $table->timestamp('created_at')->useCurrent();
             $table->index('root_offer_id');
             $table->unique('offer_id');
         });
@@ -553,7 +553,7 @@ return new class extends Migration
             $table->string('locale', 5);
             $table->longText('html');
             $table->char('sha256', 64);
-            $table->timestamp('rendered_at');
+            $table->timestamp('rendered_at')->useCurrent();
             $table->foreignId('rendered_by')->nullable()->constrained('users')->nullOnDelete();
             $table->unique(['agreement_id', 'version', 'locale']);
         });
@@ -569,7 +569,7 @@ return new class extends Migration
             $table->string('locale', 5);
             $table->char('share_token_hash', 64)->nullable();
             $table->timestamp('token_expires_at')->nullable();
-            $table->timestamp('sent_at');
+            $table->timestamp('sent_at')->useCurrent();
             $table->foreignId('sent_by')->nullable()->constrained('users')->nullOnDelete();
             $table->timestamp('viewed_at')->nullable();
             $table->timestamp('downloaded_at')->nullable();
@@ -616,7 +616,7 @@ return new class extends Migration
             $table->string('locale', 5)->nullable();
             $table->unsignedBigInteger('amount_minor')->default(0);
             $table->char('currency', 3);
-            $table->timestamp('sent_at');
+            $table->timestamp('sent_at')->useCurrent();
             $table->timestamps();
             $table->unique(['schedule_item_id', 'stage', 'channel']);
             $table->index(['order_id', 'stage']);

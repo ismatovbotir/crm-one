@@ -283,7 +283,7 @@ return new class extends Migration
             $table->id();
             $table->foreignId('bid_id')->constrained('tender_bids')->cascadeOnDelete();
             $table->string('received_via', 12);
-            $table->timestamp('received_at');
+            $table->timestamp('received_at')->useCurrent();
             $table->string('sender_name', 255);
             $table->string('sender_contact', 255)->nullable();
             $table->text('note')->nullable();
@@ -368,7 +368,7 @@ return new class extends Migration
             $table->json('payload');
             $table->char('payload_hash', 64);
             $table->foreignId('generated_by')->nullable()->constrained('users')->nullOnDelete();
-            $table->timestamp('generated_at');
+            $table->timestamp('generated_at')->useCurrent();
             $table->timestamp('submitted_at')->nullable();
             $table->timestamp('superseded_at')->nullable();
             $table->timestamps();

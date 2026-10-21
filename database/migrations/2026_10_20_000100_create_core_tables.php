@@ -171,7 +171,7 @@ return new class extends Migration
             $table->string('to_status', 30);
             $table->foreignId('user_id')->nullable()->constrained()->nullOnDelete();
             $table->text('reason')->nullable();
-            $table->timestamp('created_at');
+            $table->timestamp('created_at')->useCurrent();
             $table->index(['subject_type', 'subject_id', 'created_at']);
         });
 
@@ -241,7 +241,7 @@ return new class extends Migration
             $table->string('purpose', 20);
             $table->string('channel', 10);
             $table->char('code_hash', 64);
-            $table->timestamp('expires_at');
+            $table->timestamp('expires_at')->useCurrent();
             $table->unsignedTinyInteger('attempts')->default(0);
             $table->timestamp('consumed_at')->nullable();
             $table->timestamp('invalidated_at')->nullable();
