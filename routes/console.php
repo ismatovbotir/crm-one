@@ -97,7 +97,7 @@ Artisan::command('orders:auto-close', function (CloseOrder $close) {
 
 Schedule::command('accounting:nightly')->dailyAt('00:15')->timezone('Asia/Tashkent')->withoutOverlapping()->onOneServer();
 
-Artisan::command('crm:admin', function (EnsureAdminUser $ensure) {
+$ensureAdmin = function (EnsureAdminUser $ensure) {
     try {
         $result = $ensure->handle(config('crm.admin.name'), config('crm.admin.email'), config('crm.admin.password'));
     } catch (InvalidArgumentException $exception) {
@@ -122,7 +122,11 @@ Artisan::command('crm:admin', function (EnsureAdminUser $ensure) {
     $this->comment('Remove ADMIN_PASSWORD from .env now that it is used.');
 
     return 0;
-})->purpose('Create the default administrator (id 1) from ADMIN_* in .env, or reset its password when the e-mail exists');
+};
+
+foreach (['crm:admin', 'admin:login'] as $adminCommand) {
+    Artisan::command($adminCommand, $ensureAdmin)->purpose('Create the default administrator (id 1) from ADMIN_* in .env, or reset its password when the e-mail exists');
+}
 
 Artisan::command('accounting:dunning', function (RunDunning $dunning) {
     $result = $dunning->run();

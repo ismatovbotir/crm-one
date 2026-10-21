@@ -65,4 +65,11 @@ class EnsureAdminCommandTest extends TestCase
         $this->artisan('crm:admin')->expectsOutputToContain('ADMIN_PASSWORD')->assertExitCode(1);
         $this->assertSame(0, User::query()->count());
     }
+
+    public function test_admin_login_is_an_alias_of_crm_admin(): void
+    {
+        $this->configure();
+
+        $this->artisan('admin:login')->expectsOutputToContain('Administrator created: #1')->assertExitCode(0);
+    }
 }
