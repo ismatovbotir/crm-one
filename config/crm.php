@@ -12,6 +12,22 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Default administrator (php artisan crm:admin)
+    |--------------------------------------------------------------------------
+    |
+    | Created with id 1 when missing; when a user with this e-mail exists, its password is reset to
+    | this one. Set them in .env, run the command, then remove ADMIN_PASSWORD from .env.
+    |
+    */
+
+    'admin' => [
+        'name' => env('ADMIN_NAME', 'Administrator'),
+        'email' => env('ADMIN_EMAIL'),
+        'password' => env('ADMIN_PASSWORD'),
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
     | Money (Spec 01 section 6.10, D-1)
     |--------------------------------------------------------------------------
     |

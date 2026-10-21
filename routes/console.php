@@ -7,6 +7,7 @@ use App\Actions\Leads\AnonymiseClosedLeads;
 use App\Actions\Offers\ExpireOffers;
 use App\Actions\Orders\StartOrder;
 use App\Actions\Tenders\TenderWorkflow;
+use App\Actions\Users\EnsureAdminUser;
 use App\Enums\OrderStatus;
 use App\Models\CustomerAsset;
 use App\Models\InboundBatch;
@@ -95,6 +96,33 @@ Artisan::command('orders:auto-close', function (CloseOrder $close) {
 })->purpose('Close invoiced, paid orders with a binding agreement (Spec 06 BR-OR.11)');
 
 Schedule::command('accounting:nightly')->dailyAt('00:15')->timezone('Asia/Tashkent')->withoutOverlapping()->onOneServer();
+
+Artisan::command('crm:admin', function (EnsureAdminUser $ensure) {
+    try {
+        $result = $ensure->handle(config('crm.admin.name'), config('crm.admin.email'), config('crm.admin.password'));
+    } catch (InvalidArgumentException $exception) {
+        $this->error($exception->getMessage().' Set ADMIN_NAME, ADMIN_EMAIL and ADMIN_PASSWORD in .env.');
+
+        return 1;
+    }
+
+    $user = $result['user'];
+
+    if ($result['created']) {
+        $this->info(sprintf('Administrator created: #%d %s <%s>.', $user->id, $user->name, $user->email));
+
+        if ($result['id_one_taken']) {
+            $this->warn('User id 1 already belongs to someone else, so this administrator got id '.$user->id.'.');
+        }
+
+        return 0;
+    }
+
+    $this->info(sprintf('Password reset for #%d <%s> (%s).', $user->id, $user->email, implode(', ', $result['changes'])));
+    $this->comment('Remove ADMIN_PASSWORD from .env now that it is used.');
+
+    return 0;
+})->purpose('Create the default administrator (id 1) from ADMIN_* in .env, or reset its password when the e-mail exists');
 
 Artisan::command('accounting:dunning', function (RunDunning $dunning) {
     $result = $dunning->run();
