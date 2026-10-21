@@ -1,0 +1,106 @@
+<?php
+
+/*
+| Reports (roadmap step 3).
+*/
+
+return [
+
+    'title' => 'Hisobotlar',
+    'intro' => 'Sizga ko‘rinadigan ko‘rsatkichlar, CSV va Excelga yuklab olish bilan.',
+    'open' => 'Hisobotni ochish',
+    'back' => 'Barcha hisobotlar',
+    'from' => 'Dan',
+    'to' => 'Gacha',
+    'point_in_time' => 'Joriy holat (davrsiz).',
+    'export_csv' => 'CSV yuklab olish',
+    'export_xlsx' => 'Excel yuklab olish',
+    'empty' => 'Tanlangan shartlar bo‘yicha ma’lumot yo‘q.',
+    'preview_limited' => 'Dastlabki :count qator ko‘rsatilgan; yuklab olishda barcha qatorlar bor.',
+    'values' => [
+        'serial_gap' => 'ombordagi seriya raqamlari: :serials',
+    ],
+    'list' => [
+        'sales_funnel' => [
+            'title' => 'Savdo voronkasi va konversiya',
+            'description' => 'Davrda yaratilgan lidlar manbalar bo‘yicha: aloqa, saralash, taklif, yopilgan, konversiya.',
+        ],
+        'offers_win_rate' => [
+            'title' => 'Yutilgan takliflar ulushi',
+            'description' => 'Davrda yuborilgan takliflar mas’ullar bo‘yicha: qabul qilingan, rad etilgan, muddati o‘tgan, ulush va summa.',
+        ],
+        'orders_backlog' => [
+            'title' => 'Buyurtmalar portfeli',
+            'description' => 'Ochiq buyurtmalar: holat, sotuv turi, summa, to‘langan, yetkazish muddati va yoshi.',
+        ],
+        'receivables_aging' => [
+            'title' => 'Debitorlik qarzi muddatlari',
+            'description' => 'Mijozlar bo‘yicha muddati o‘tgan kunlar va taqsimlanmagan avanslar.',
+        ],
+        'payments' => [
+            'title' => 'To‘lovlar',
+            'description' => 'Davrdagi to‘lovlar: usul, holat va taqsimlash.',
+        ],
+        'stock_serials' => [
+            'title' => 'Qoldiqlar va seriya raqamlari',
+            'description' => 'Tovarlar bo‘yicha qoldiq va holatlar bo‘yicha seriya raqamlari, farqlar belgilangan.',
+        ],
+        'tender_savings' => [
+            'title' => 'Tenderlardagi tejamkorlik',
+            'description' => 'Yakunlangan tenderlar: byudjet, yakuniy qiymat va tejamkorlik (faqat bir valyutada).',
+        ],
+    ],
+    'columns' => [
+        'customers' => 'Mijozga aylangan',
+        'days_to_convert' => 'Aylantirishgacha kunlar',
+        'source' => 'Manba',
+        'leads' => 'Lidlar',
+        'contacted' => 'Aloqa',
+        'qualified' => 'Saralangan',
+        'converted' => 'Taklif',
+        'closed' => 'Yopilgan',
+        'conversion' => 'Konversiya',
+        'owner' => 'Mas’ul',
+        'sent' => 'Yuborilgan',
+        'accepted' => 'Qabul qilingan',
+        'rejected' => 'Rad etilgan',
+        'expired' => 'Muddati o‘tgan',
+        'win_rate' => 'Yutish ulushi',
+        'accepted_value' => 'Qabul qilinganlar summasi',
+        'number' => 'Raqam',
+        'customer' => 'Mijoz',
+        'status' => 'Holat',
+        'sale_type' => 'Sotuv turi',
+        'total' => 'Summa',
+        'paid' => 'To‘langan',
+        'promised' => 'Yetkazish muddati',
+        'age_days' => 'Yoshi (kun)',
+        'current' => 'Muddati kelmagan',
+        'd1_30' => '1–30 kun',
+        'd31_60' => '31–60 kun',
+        'd61_90' => '61–90 kun',
+        'd90_plus' => '90 kundan ortiq',
+        'advance' => 'Avanslar',
+        'paid_on' => 'Sana',
+        'payer' => 'To‘lovchi',
+        'method' => 'Usul',
+        'kind' => 'Turi',
+        'amount' => 'Summa',
+        'allocated' => 'Taqsimlangan',
+        'sku' => 'Kod',
+        'name' => 'Tovar',
+        'stock' => 'Qoldiq',
+        'reserved' => 'Zaxira',
+        'serials_available' => 'Mavjud seriyalar',
+        'serials_reserved' => 'Zaxiradagi seriyalar',
+        'serials_sold' => 'Sotilgan seriyalar',
+        'gap' => 'Farq',
+        'title' => 'Nomi',
+        'budget' => 'Byudjet',
+        'awarded' => 'Yakuniy',
+        'savings' => 'Tejamkorlik',
+        'savings_percent' => 'Tejamkorlik, %',
+        'currency' => 'valyuta',
+    ],
+
+];

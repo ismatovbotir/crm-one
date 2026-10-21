@@ -1,0 +1,145 @@
+<?php
+
+return [
+
+    'appearance' => [
+        'title' => 'Tashqi ko‘rinish',
+        'intro' => 'Ilovaning rang sxemasini sozlang. O‘zgarishlar saqlangan zahoti barcha foydalanuvchilar uchun (kirish sahifasi ham) qo‘llaniladi.',
+
+        'logo' => 'Logotip',
+        'logo_help' => 'Yon menyu, yuqori panel, kirish sahifasi, chop etiladigan hujjatlarda va sayt belgisi sifatida ko‘rsatiladi. Kvadrat rasmlar eng yaxshi mos keladi. PNG, JPG yoki WebP, 2 MB gacha.',
+        'logo_current_custom' => 'Joriy (maxsus)',
+        'logo_current_default' => 'Joriy (standart)',
+        'logo_preview_alt' => 'Yangi logotipni oldindan ko‘rish',
+        'logo_new' => 'Yangi',
+        'logo_file' => 'Logotip fayli',
+        'upload_logo' => 'Logotipni yuklash',
+        'reset_logo' => 'Standart RSG logotipini tiklash',
+        'reset_logo_confirm' => 'Standart RSG logotipi tiklansinmi?',
+        'logo_updated' => 'Logotip yangilandi.',
+        'logo_reset_done' => 'Standart RSG logotipi tiklandi.',
+        'logo_not_image' => 'Fayl yaroqli PNG, JPG yoki WebP rasm emas (ko‘pi bilan 4096 x 4096 piksel).',
+
+        'presets' => 'Tayyor sxemalar',
+        'presets_help' => 'Tayyor sxema faqat quyidagi shaklni to‘ldiradi. Qo‘llash uchun «Saqlash» tugmasini bosing.',
+        'color_picker' => ':color — rang tanlash',
+        'default_hex' => 'Standart: :hex',
+        'hex_invalid' => '6 belgili HEX rang kiriting, masalan #e51932.',
+
+        'not_saved_contrast' => 'Saqlanmadi: ayrim ranglar yetarlicha o‘qiladigan emas (WCAG AA).',
+        'contrast_error' => '«:label»: :ratio:1, kamida :minimum:1 bo‘lishi kerak.',
+        'reset_colors' => 'Standartga qaytarish',
+        'reset_colors_confirm' => 'Barcha ranglar standart «Qizil / Kumushrang / Oq» mavzusiga qaytarilsinmi?',
+        'saved' => 'Tashqi ko‘rinish saqlandi.',
+        'reset_done' => 'Standart ranglar tiklandi.',
+
+        'contrast' => 'Kontrast',
+        'contrast_help' => 'Biror tekshiruv o‘tmasa, saqlash bloklanadi. Matn uchun 4,5:1, interfeys elementlari uchun 3:1 kerak.',
+        'pass' => 'Me’yorda',
+        'fail' => 'Me’yordan past',
+
+        'preview' => 'Oldindan ko‘rish',
+        'preview_offers_hover' => 'Takliflar (kursor ustida)',
+        'preview_offer' => 'Taklif Q-2026-014',
+        'preview_sent' => 'Yuborilgan',
+        'preview_secondary_text' => 'Sahifa fonidagi ikkinchi darajali matn.',
+        'preview_link' => 'Havola',
+        'preview_primary' => 'Asosiy',
+        'preview_hover' => 'Kursor ustida',
+        'preview_secondary' => 'Ikkinchi darajali',
+        'preview_input' => 'Kiritish maydoni',
+    ],
+
+    'colors' => [
+        'primary' => [
+            'label' => 'Asosiy rang',
+            'description' => 'Asosiy tugmalar, faol menyu bandi, belgilar, fokus ramkasi.',
+        ],
+        'primary_hover' => [
+            'label' => 'Asosiy rang (kursor ustida) / to‘q',
+            'description' => 'Tugmalar ustiga kelganda, havolalar va xato xabarlari.',
+        ],
+        'sidebar' => [
+            'label' => 'Yon menyu / panel foni',
+            'description' => 'Yon menyu, jadval sarlavhalari va kirish sahifasidagi yon panel foni.',
+        ],
+        'sidebar_text' => [
+            'label' => 'Yon menyu matni',
+            'description' => 'Yon menyudagi navigatsiya matni. Yozuvlar va kursor soyalari undan hisoblanadi.',
+        ],
+        'surface' => [
+            'label' => 'Sahifa yuzasi',
+            'description' => 'Kartochkalar, yuqori panel, kiritish maydonlari. Sahifa foni undan hisoblanadi.',
+        ],
+        'text' => [
+            'label' => 'Matn / sarlavhalar',
+            'description' => 'Asosiy matn va sarlavhalar. Ikkinchi darajali matn undan hisoblanadi.',
+        ],
+        'border' => [
+            'label' => 'Chegaralar',
+            'description' => 'Kartochka, jadval va ajratgich chegaralari.',
+        ],
+    ],
+
+    'presets' => [
+        'default' => 'Qizil / Kumushrang / Oq (standart)',
+        'dark_red' => 'To‘q qizil',
+        'mono' => 'Monoxrom',
+        'navy' => 'To‘q ko‘k',
+    ],
+
+    'contrast' => [
+        'white_on_primary' => 'Asosiy rangdagi oq matn',
+        'white_on_primary_hover' => 'Kursor rangidagi oq matn',
+        'links_on_surface' => 'Fondagi havolalar / xatolar (kursor rangi)',
+        'text_on_surface' => 'Fondagi matn',
+        'sidebar_text_on_sidebar' => 'Yon menyu fonidagi menyu matni',
+        'nav_pill_on_sidebar' => 'Yon menyu fonidagi faol menyu bandi (asosiy rang), matn emas',
+    ],
+
+    'company' => [
+        'title' => 'Kompaniya profili',
+        'intro' => 'Takliflar, buyurtmalar va shartnomalarda chop etiladi. Yuridik nom, manzil va shahar har bir hujjat tili uchun saqlanadi.',
+        'profile' => 'Yuridik ma’lumotlar',
+        'saved' => 'Kompaniya profili saqlandi.',
+        'tax_id_invalid' => 'STIR 9 ta raqamdan iborat.',
+        'mfo_invalid' => 'Bank MFO si 5 ta raqamdan iborat.',
+        'account_invalid' => 'Hisob raqami 20 ta raqamdan iborat.',
+        'bank_accounts' => 'Bizning bank hisob raqamlarimiz',
+        'add_bank' => 'Hisob qo‘shish',
+        'bank_saved' => 'Bank hisob raqami saqlandi.',
+        'no_banks' => 'Hozircha bank hisob raqamlari yo‘q: ularsiz shartnomalarni yuborib bo‘lmaydi.',
+        'signatories' => 'Imzolovchilar',
+        'signatories_help' => 'Kompaniya nomidan shartnomalarni kim imzolaydi: standart bo‘yicha direktor; boshqalar ishonchnoma va uning muddati bilan.',
+        'add_signatory' => 'Imzolovchi qo‘shish',
+        'signatory_saved' => 'Imzolovchi saqlandi.',
+        'no_signatories' => 'Hozircha imzolovchilar yo‘q: ularsiz shartnomalarni yuborib bo‘lmaydi.',
+        'basis_hint' => 'Ustav yoki ishonchnoma raqami va sanasi',
+        'valid_until' => ':date gacha amal qiladi',
+        'default' => 'Standart',
+        'activate' => 'Faollashtirish',
+        'deactivate' => 'Faolsizlantirish',
+        'fields' => [
+            'legal_name' => 'Yuridik nomi',
+            'address' => 'Yuridik manzil',
+            'city' => 'Shahar (imzolangan joy)',
+            'tax_id' => 'STIR',
+            'vat_code' => 'QQS to‘lovchisining ro‘yxatdan o‘tish kodi',
+            'oked' => 'IFUT',
+            'phone' => 'Telefon',
+            'email' => 'E-mail',
+            'director' => 'Direktor',
+            'chief_accountant' => 'Bosh hisobchi',
+            'bank_name' => 'Bank',
+            'mfo' => 'MFO',
+            'account_number' => 'Hisob raqami',
+            'currency' => 'Valyuta',
+            'is_default' => 'Standart',
+            'full_name' => 'F.I.Sh.',
+            'position' => 'Lavozimi',
+            'basis' => 'Asosida faoliyat yuritadi',
+            'valid_until' => 'Vakolat muddati',
+        ],
+    ],
+
+];

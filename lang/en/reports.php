@@ -1,0 +1,106 @@
+<?php
+
+/*
+| Reports (roadmap step 3).
+*/
+
+return [
+
+    'title' => 'Reports',
+    'intro' => 'Figures you may see, with CSV and Excel export.',
+    'open' => 'Open report',
+    'back' => 'All reports',
+    'from' => 'From',
+    'to' => 'To',
+    'point_in_time' => 'Current state (no period).',
+    'export_csv' => 'Export CSV',
+    'export_xlsx' => 'Export Excel',
+    'empty' => 'No data for this selection.',
+    'preview_limited' => 'Showing the first :count rows; the export contains all rows.',
+    'values' => [
+        'serial_gap' => 'serials on hand: :serials',
+    ],
+    'list' => [
+        'sales_funnel' => [
+            'title' => 'Sales funnel and conversion',
+            'description' => 'Leads created in the period by source: contacted, qualified, converted to an offer, closed, conversion rate.',
+        ],
+        'offers_win_rate' => [
+            'title' => 'Offer win rate',
+            'description' => 'Offers sent in the period by owner: accepted, rejected, expired, win rate and accepted value.',
+        ],
+        'orders_backlog' => [
+            'title' => 'Orders backlog',
+            'description' => 'Open orders with status, sale type, amount, paid, promised delivery and age.',
+        ],
+        'receivables_aging' => [
+            'title' => 'Receivables aging',
+            'description' => 'Outstanding amounts per customer by days overdue, with unallocated advances.',
+        ],
+        'payments' => [
+            'title' => 'Payments',
+            'description' => 'Payments in the period with method, status and allocation.',
+        ],
+        'stock_serials' => [
+            'title' => 'Stock and serial numbers',
+            'description' => 'Stock per item and serial numbers by status, with differences flagged.',
+        ],
+        'tender_savings' => [
+            'title' => 'Tender savings',
+            'description' => 'Awarded tenders: budget, awarded landed cost and savings (same currency only).',
+        ],
+    ],
+    'columns' => [
+        'customers' => 'Became customers',
+        'days_to_convert' => 'Days to convert',
+        'source' => 'Source',
+        'leads' => 'Leads',
+        'contacted' => 'Contacted',
+        'qualified' => 'Qualified',
+        'converted' => 'Converted',
+        'closed' => 'Closed',
+        'conversion' => 'Conversion',
+        'owner' => 'Owner',
+        'sent' => 'Sent',
+        'accepted' => 'Accepted',
+        'rejected' => 'Rejected',
+        'expired' => 'Expired',
+        'win_rate' => 'Win rate',
+        'accepted_value' => 'Accepted value',
+        'number' => 'Number',
+        'customer' => 'Customer',
+        'status' => 'Status',
+        'sale_type' => 'Sale type',
+        'total' => 'Total',
+        'paid' => 'Paid',
+        'promised' => 'Promised delivery',
+        'age_days' => 'Age (days)',
+        'current' => 'Not due',
+        'd1_30' => '1–30 days',
+        'd31_60' => '31–60 days',
+        'd61_90' => '61–90 days',
+        'd90_plus' => 'Over 90 days',
+        'advance' => 'Advances',
+        'paid_on' => 'Date',
+        'payer' => 'Payer',
+        'method' => 'Method',
+        'kind' => 'Kind',
+        'amount' => 'Amount',
+        'allocated' => 'Allocated',
+        'sku' => 'Code',
+        'name' => 'Item',
+        'stock' => 'Stock',
+        'reserved' => 'Reserved',
+        'serials_available' => 'Serials available',
+        'serials_reserved' => 'Serials reserved',
+        'serials_sold' => 'Serials sold',
+        'gap' => 'Difference',
+        'title' => 'Title',
+        'budget' => 'Budget',
+        'awarded' => 'Awarded',
+        'savings' => 'Savings',
+        'savings_percent' => 'Savings %',
+        'currency' => 'currency',
+    ],
+
+];

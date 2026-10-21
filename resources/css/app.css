@@ -1,0 +1,145 @@
+@import 'tailwindcss';
+
+@source '../../vendor/laravel/framework/src/Illuminate/Pagination/resources/views/*.blade.php';
+@source '../../storage/framework/views/*.php';
+@source '../../vendor/livewire/livewire/src/Features/SupportPagination/views/*.blade.php';
+
+/*
+ * Brand theme: red, silver grey, white.
+ *
+ * Defaults below are the fallback; admins can override the base tokens at runtime
+ * (Settings > Appearance), injected as :root variables by partials/head.blade.php.
+ * Keep these defaults in sync with App\Enums\ThemeColor::default().
+ *
+ * Contrast (WCAG 2.x):
+ * - brand-600 #E51932 is the RSG logo red. White on it: 4.64:1 (AA, just). brand-700 #C4142A
+ *   (hover) with white, or as text on white: 6.0:1 (links, errors).
+ * - ink #1F2937 on white: 14.7:1; muted #4B5563 on white: 7.5:1.
+ * - sidebar-text #1F2937 on sidebar #D5D8DE: 10.2:1; sidebar-muted #4B5563: 5.2:1.
+ * - #E51932 on silver #D5D8DE is only 3.25:1, so red is never used as text on the sidebar;
+ *   active states are white-on-red pills (4.64:1) and the pill itself clears 3:1 (non-text).
+ */
+@theme {
+    --font-sans: 'Instrument Sans', ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji',
+        'Segoe UI Symbol', 'Noto Color Emoji';
+
+    --color-brand-50: #fef2f3;
+    --color-brand-100: #fde3e6;
+    --color-brand-200: #fbcbd1;
+    --color-brand-300: #f7a1ac;
+    --color-brand-400: #f16679;
+    --color-brand-500: #ea3a50;
+    --color-brand-600: #e51932;
+    --color-brand-700: #c4142a;
+    --color-brand-800: #9d1022;
+    --color-brand-900: #7d0f1d;
+    --color-brand-950: #45050d;
+
+    --color-ink: #1f2937;
+    --color-ink-soft: #374151;
+    --color-muted: #4b5563;
+    --color-surface: #ffffff;
+    --color-canvas: #eef0f3;
+    --color-line: #c0c4cc;
+    --color-line-strong: #9aa0aa;
+
+    --color-sidebar: #d5d8de;
+    --color-sidebar-text: #1f2937;
+    --color-sidebar-muted: #4b5563;
+    --color-sidebar-line: #c0c4cc;
+}
+
+@layer base {
+    :root {
+        color-scheme: light;
+    }
+
+    body {
+        @apply bg-canvas text-ink antialiased;
+    }
+
+    :focus-visible {
+        @apply outline-2 outline-offset-2 outline-brand-600;
+    }
+
+    [x-cloak] {
+        display: none !important;
+    }
+}
+
+@layer components {
+    .btn {
+        @apply inline-flex items-center justify-center gap-2 rounded-md px-4 py-2 text-sm font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-60;
+    }
+
+    /* Rendered agreement text (Spec 06 DEC-10): templates carry no classes, so style by element. */
+    .agreement-text h1 { @apply mb-3 text-center text-lg font-bold; }
+    .agreement-text h2 { @apply mt-4 mb-2 text-base font-bold; }
+    .agreement-text h3, .agreement-text h4 { @apply mt-3 mb-1 font-semibold; }
+    .agreement-text p { @apply my-2 leading-relaxed; }
+    .agreement-text ul { @apply my-2 list-disc pl-6; }
+    .agreement-text ol { @apply my-2 list-decimal pl-6; }
+    .agreement-text table { @apply my-3 w-full border-collapse text-xs; }
+    .agreement-text th, .agreement-text td { @apply border border-neutral-400 px-2 py-1 text-left align-top; }
+    .agreement-text th { @apply bg-neutral-100 font-semibold; }
+    .agreement-text tfoot td { @apply font-semibold; }
+    .agreement-text hr { @apply my-4 border-neutral-300; }
+
+    .btn-sm {
+        @apply px-3 py-1 text-xs;
+    }
+
+    .btn-primary {
+        @apply bg-brand-600 text-white hover:bg-brand-700 active:bg-brand-800;
+    }
+
+    .btn-dark {
+        @apply bg-ink text-white hover:bg-ink-soft;
+    }
+
+    .btn-secondary {
+        @apply border border-line-strong bg-surface text-ink hover:bg-neutral-100;
+    }
+
+    .btn-danger-outline {
+        @apply border border-brand-600 bg-surface text-brand-700 hover:bg-brand-50;
+    }
+
+    .form-label {
+        @apply mb-1 block text-sm font-medium text-ink;
+    }
+
+    .form-input {
+        @apply block w-full rounded-md border border-line-strong bg-surface px-3 py-2 text-sm text-ink placeholder:text-muted focus:border-brand-600 focus:ring-2 focus:ring-brand-600/20 focus:outline-none disabled:bg-neutral-100 disabled:text-muted;
+    }
+
+    .form-error {
+        @apply mt-1 text-sm text-brand-700;
+    }
+
+    .card {
+        @apply rounded-lg border border-line bg-surface shadow-sm;
+    }
+
+    .link {
+        @apply font-medium text-brand-700 underline-offset-2 hover:underline;
+    }
+}
+
+/* Accessibility and consistency (job: UI consistency, step 1) */
+@layer components {
+    .skip-link {
+        @apply sr-only;
+    }
+
+    .skip-link:focus {
+        @apply not-sr-only fixed top-2 left-2 z-50 rounded-md bg-ink px-4 py-2 text-sm font-semibold text-white;
+    }
+
+    /* Money and quantities in tables line up. */
+    table td.text-right,
+    table th.text-right,
+    dd.money {
+        font-variant-numeric: tabular-nums;
+    }
+}

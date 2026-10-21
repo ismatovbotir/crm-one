@@ -1,0 +1,803 @@
+<?php
+
+namespace App\Support\OpenApi;
+
+/**
+ * OpenAPI 3.1 description of the 1C integration API (/api/v1/integration/1c/*). Written by hand
+ * against the code (Spec 02 section 9, Spec 06 section 9, Spec 03 section 22); the test
+ * `OpenApiSpecTest` fails when a route is missing from the spec or the spec names a route that
+ * does not exist. Examples are illustrative values only, never real tokens or data.
+ * Served at /api/docs/openapi.json and /api/docs/openapi.yaml; a copy lives in
+ * docs/openapi/1c-integration.json (`php artisan crm:openapi --write`).
+ */
+class OneCIntegrationSpec
+{
+    public const SERVER_PATH = '/api/v1/integration/1c';
+
+    /**
+     * @return array<string, mixed>
+     */
+    public function build(): array
+    {
+        return [
+            'openapi' => '3.1.0',
+            'info' => [
+                'title' => 'CRM ⇄ 1C integration API',
+                'version' => '1.0.0',
+                'summary' => '1C pushes catalog, stock, customers, payments and goods receipts to the CRM and pulls CRM documents from the outbox. The CRM never calls 1C.',
+                'license' => ['name' => 'Proprietary, internal use of the CRM owner and its 1C contractor'],
+                'description' => $this->description(),
+            ],
+            'servers' => [['url' => self::SERVER_PATH, 'description' => 'Relative to the CRM base URL (for example https://crm.example.uz). HTTPS is required in production.']],
+            'security' => [['bearerAuth' => []]],
+            'tags' => [
+                ['name' => 'Service', 'description' => 'Connectivity and batch status.'],
+                ['name' => 'Catalog and stock (push)', 'description' => '1C pushes units, item groups, items with prices and codes, warehouses and stock with cost. Queued processing.'],
+                ['name' => 'Customers', 'description' => 'Two-way customer exchange: 1C pulls customers created or changed in the CRM, acknowledges them, and pushes its own customers. Only organizations with the customer role take part.'],
+                ['name' => 'Document outbox (pull)', 'description' => 'CRM documents for 1C: orders, invoices, agreements, delivery notes with serial numbers (feed `orders`), payments (feed `payments`), goods receipts (feed `warehouse`). Pull, then acknowledge.'],
+                ['name' => 'Payments (push)', 'description' => 'Bank and cash payments booked in 1C, matched to CRM customers and orders.'],
+                ['name' => 'Goods receipts (push)', 'description' => 'Supplier goods receipts are created in 1C and pushed here; the CRM stock manager enters received and damaged quantities and serial numbers and posts them. The posted result is available for 1C to pull from the `warehouse` feed (`goods_receipt.posted`).'],
+            ],
+            'paths' => $this->paths(),
+            'components' => [
+                'securitySchemes' => [
+                    'bearerAuth' => [
+                        'type' => 'http',
+                        'scheme' => 'bearer',
+                        'bearerFormat' => '1c_<48 random characters>',
+                        'description' => 'Integration token issued in CRM Settings > Integrations (shown once). Scoped by abilities, optional IP allowlist, expiry (default 180 days, max 365). Send `Authorization: Bearer 1c_...`.',
+                    ],
+                ],
+                'parameters' => $this->parameters(),
+                'headers' => [
+                    'RetryAfter' => ['description' => 'Seconds to wait before retrying (429, 503).', 'schema' => ['type' => 'integer']],
+                    'IdempotentReplayed' => ['description' => '`true` when the response is the stored answer to an earlier request with the same batch_id and body.', 'schema' => ['type' => 'string', 'enum' => ['true']]],
+                ],
+                'responses' => $this->responses(),
+                'schemas' => $this->schemas(),
+            ],
+        ];
+    }
+
+    protected function description(): string
+    {
+        return <<<'MD'
+**Architecture: pull-only.** The CRM never opens a connection to 1C. 1C calls this API to **push** master data (catalog, stock, customers, payments) and to **pull** CRM documents (customers to create, orders, invoices, delivery notes, payments, goods receipts), then **acknowledges** what it applied.
+
+**Authentication.** `Authorization: Bearer <token>`. Each token has abilities: `items:write`, `stock:write`, `batches:read`, `customers:read`, `customers:write`, `orders:read`, `payments:read`, `payments:write`, `warehouse:read`, `warehouse:write`. A missing ability answers `403 forbidden_ability`.
+
+**Network and signing.** A token may have an IP allowlist (`403 ip_not_allowed`). Requests from outside the private network (RFC 1918, loopback, configured ranges) must be **signed**; tokens issued "with signing secret" must always be signed:
+
+```
+X-Timestamp: <unix seconds, UTC>            (±300 s tolerance)
+X-Signature: sha256=<hex HMAC-SHA256(signing_secret, X-Timestamp + "." + raw request body)>
+```
+
+For GET requests the body is the empty string. Sign the exact bytes you send (UTF-8, no re-serialisation after signing).
+
+**Limits.** 60 requests per minute per token and 300 per IP (`429 rate_limited` with `Retry-After`). Push bodies up to 10 MB and 1000 records per catalog/stock batch (`413 payload_too_large`, `422 too_many_records`); customers 200 per push; payments 1000 per push; goods receipts 50 per push (500 lines each); polls up to 500 per page; 500 acknowledgements per call.
+
+**Idempotency.** Every push carries a `batch_id` (UUID). Re-sending the same `batch_id` with the same body returns the stored response with `Idempotent-Replayed: true`; the same `batch_id` with a different body is `409 idempotency_key_reused`. The optional `Idempotency-Key` header must equal `batch_id`. Retry network failures and 5xx/429/503 **with the same batch_id**.
+
+**Delta and full snapshots.** `mode: delta` changes only what is sent. `mode: full` sends the complete set in parts (`snapshot.id`, `part`, `total_parts`); when all parts arrived (within 120 minutes), active records not seen in the snapshot are deactivated (catalog) or removed (stock). Safety guard: if fewer than 80 % of the active rows were seen, nothing is removed and the snapshot ends as `partial`; a snapshot not completed in time expires and removes nothing. A stock snapshot may be limited to some warehouses (`snapshot.scope.warehouse_ids`).
+
+**Queued processing.** Catalog and stock pushes are validated on arrival (`202 Accepted`, or `207` when some records were rejected) and processed in the background; poll `GET /batches/{batchId}` for the result. Customers, payments and goods receipts are processed synchronously (`200`/`207`).
+
+**Errors.** Always `{"error": {"code", "message", "fields"?, "request_id"}}`. Send `X-Request-Id` (UUID) to correlate with CRM logs.
+
+**Formats.** GUIDs are 1C reference UUIDs (lower or upper case). Dates `YYYY-MM-DD`; date-times ISO 8601 (without offset = Asia/Tashkent). Money as decimal strings in major units (`"1500000.00"`), currency ISO 4217 (UZS, USD, EUR, RUB). VAT as a percent string (`"12"`) or `"exempt"`; the CRM stores basis points. Quantities as decimal strings with up to 3 decimals.
+
+**Organizations.** The CRM keeps one organization per tax ID with roles customer / supplier / carrier. The customer exchange covers organizations with the customer role only. Supplier/carrier columns (`external_id`, `synced_at` on the supplier profile) are prepared but **not active**: there is no supplier endpoint yet.
+
+**Partners.** Inside the CRM every organization is a partner with roles (customer, supplier, carrier; one table, Spec 03 section 24). The `customers` endpoints, the `customers:read`/`customers:write` scopes, all JSON field names and the feed names are unchanged: they serve partners with the customer role. Suppliers and carriers are not exchanged.
+
+**Customer requests (requisitions).** Requests customers send from the portal (Spec 10) are not exchanged with 1C. 1C receives the resulting order through the `orders` feed as usual (`order.confirmed`).
+
+**Document linking (goods receipts).** Every answer for a pushed document carries the CRM id (`crm_id`), the CRM number and the CRM `version`, and echoes your 1C id (`id`). Store `crm_id` and `version`. On a later push the CRM matches by `crm_id` first, then by your 1C id; no match creates the document. Send the `version` you hold (and your `updated_at`): an older one is refused as `stale_version` / `stale_update`. The result is `created`, `updated` or `unchanged` (same content). A document already posted in the CRM is never rewritten: the change is refused with `receipt_posted` and flagged for the stock manager. You can also update one document with `PUT /goods-receipts/{crmId}`.
+
+**CRM-owned data.** Serial numbers, item pictures, CRM-local cargo data and warranty months are maintained in the CRM; 1C must not send them (unknown fields are ignored).
+MD;
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    protected function paths(): array
+    {
+        $signed = [['$ref' => '#/components/parameters/RequestId'], ['$ref' => '#/components/parameters/Timestamp'], ['$ref' => '#/components/parameters/Signature']];
+        $push = [...$signed, ['$ref' => '#/components/parameters/IdempotencyKey']];
+        // Status codes are integer-like keys: merge with `+`/ksort, never with `...` (it renumbers them).
+        $common = function (array $extra = []): array {
+            $responses = $extra + [
+                '401' => ['$ref' => '#/components/responses/Unauthenticated'],
+                '403' => ['$ref' => '#/components/responses/Forbidden'],
+                '429' => ['$ref' => '#/components/responses/RateLimited'],
+            ];
+            ksort($responses);
+
+            return array_combine(array_map('strval', array_keys($responses)), $responses);
+        };
+        $pushErrors = [
+            '409' => ['$ref' => '#/components/responses/Conflict'],
+            '413' => ['$ref' => '#/components/responses/PayloadTooLarge'],
+            '415' => ['$ref' => '#/components/responses/UnsupportedMediaType'],
+            '422' => ['$ref' => '#/components/responses/ValidationFailed'],
+            '503' => ['$ref' => '#/components/responses/IntegrationDisabled'],
+        ];
+        $json = fn (string $schema, array $examples = []): array => ['content' => ['application/json' => array_filter(['schema' => ['$ref' => '#/components/schemas/'.$schema], 'examples' => $examples ?: null])]];
+
+        return [
+            '/ping' => ['get' => [
+                'tags' => ['Service'], 'operationId' => 'ping', 'summary' => 'Check the token and the connection',
+                'description' => 'Any valid token. Returns the token abilities and whether the catalog intake is switched on.',
+                'parameters' => $signed,
+                'responses' => $common(['200' => ['description' => 'OK', ...$json('Ping', ['ok' => ['value' => $this->examplePing()]])]]),
+            ]],
+            '/batches/{batchId}' => ['get' => [
+                'tags' => ['Service'], 'operationId' => 'getBatch', 'summary' => 'Processing status of a pushed batch',
+                'description' => 'Ability `batches:read`. Only batches sent with the same token are visible (others are 404).',
+                'parameters' => [['name' => 'batchId', 'in' => 'path', 'required' => true, 'schema' => ['type' => 'string', 'format' => 'uuid']], ...$signed],
+                'responses' => $common([
+                    '200' => ['description' => 'Batch status', ...$json('BatchStatus', ['processed' => ['value' => $this->exampleBatchStatus()]])],
+                    '404' => ['$ref' => '#/components/responses/NotFound'],
+                ]),
+            ]],
+            '/items' => ['post' => [
+                'tags' => ['Catalog and stock (push)'], 'operationId' => 'pushItems', 'summary' => 'Push units, item groups and items',
+                'description' => 'Ability `items:write`. Items reference units and groups by GUID; send units/groups in the same or an earlier batch. Item prices: one sale and one purchase price with currency; an absent price key keeps the stored price, `null` clears it. Codes: `accountant_code` (≤64), `class_code` (IKPU, digits, normally 17), `package_code` (digits ≤32); empty or absent keeps the stored value.',
+                'parameters' => $push,
+                'requestBody' => ['required' => true, ...$json('ItemsBatch', ['delta' => ['value' => $this->exampleItemsBatch()]])],
+                'responses' => $common(['202' => ['$ref' => '#/components/responses/BatchAccepted'], '207' => ['$ref' => '#/components/responses/BatchPartlyAccepted']] + $pushErrors),
+            ]],
+            '/item-stock' => ['post' => [
+                'tags' => ['Catalog and stock (push)'], 'operationId' => 'pushStock', 'summary' => 'Push warehouses and stock with cost',
+                'description' => 'Ability `stock:write`. `as_of` is the moment the balances were taken; an older `as_of` never overwrites a newer row. `cost` is the total cost of `quantity` (preferred) or `unit_cost` per unit, in `cost_currency` (default UZS). Negative balances are accepted.',
+                'parameters' => $push,
+                'requestBody' => ['required' => true, ...$json('StockBatch', ['full_snapshot_part' => ['value' => $this->exampleStockBatch()]])],
+                'responses' => $common(['202' => ['$ref' => '#/components/responses/BatchAccepted'], '207' => ['$ref' => '#/components/responses/BatchPartlyAccepted']] + $pushErrors),
+            ]],
+            '/batch' => ['post' => [
+                'tags' => ['Catalog and stock (push)'], 'operationId' => 'pushCombined', 'summary' => 'Push catalog and stock in one request',
+                'description' => 'The token needs the ability of every section present (`items:write` for `items`, `stock:write` for `stock`).',
+                'parameters' => $push,
+                'requestBody' => ['required' => true, ...$json('CombinedBatch', ['combined' => ['value' => $this->exampleCombinedBatch()]])],
+                'responses' => $common(['202' => ['$ref' => '#/components/responses/BatchAccepted'], '207' => ['$ref' => '#/components/responses/BatchPartlyAccepted']] + $pushErrors),
+            ]],
+            '/customers/pending' => ['get' => [
+                'tags' => ['Customers'], 'operationId' => 'pullCustomers', 'summary' => 'Customers created or changed in the CRM, to create or update in 1C',
+                'description' => 'Ability `customers:read`. Oldest first; pass `next_cursor` as `cursor` for the next page until `has_more` is false. Entries stay pending until acknowledged, so a lost response is simply pulled again (`delivery_count` grows). Only partners with "Sync with 1C" on and a tax ID are listed (rev. 4); the switch is off by default for new partners.',
+                'parameters' => [
+                    ['name' => 'limit', 'in' => 'query', 'schema' => ['type' => 'integer', 'minimum' => 1, 'maximum' => 500, 'default' => 100]],
+                    ['name' => 'cursor', 'in' => 'query', 'schema' => ['type' => 'string', 'pattern' => '^\d*$', 'default' => '0'], 'description' => 'Opaque; the `next_cursor` of the previous page.'],
+                    ...$signed,
+                ],
+                'responses' => $common(['200' => ['description' => 'A page of customers', ...$json('CustomersPage', ['page' => ['value' => $this->exampleCustomersPage()]])], '422' => ['$ref' => '#/components/responses/ValidationFailed'], '503' => ['$ref' => '#/components/responses/IntegrationDisabled']]),
+            ]],
+            '/customers/ack' => ['post' => [
+                'tags' => ['Customers'], 'operationId' => 'ackCustomers', 'summary' => 'Acknowledge pulled customers',
+                'description' => 'Ability `customers:write`. One ack object or `{"acks": [...]}` (1–500). `synced` stores the 1C GUID (and contact GUIDs); `failed` shows the 1C error to CRM users and keeps the customer out of 1C until it is edited. Idempotent: repeating the same ack is `already_applied`.',
+                'parameters' => [...$signed],
+                'requestBody' => ['required' => true, ...$json('CustomerAcks', ['acks' => ['value' => $this->exampleCustomerAcks()]])],
+                'responses' => $common(['200' => ['description' => 'All applied', ...$json('AckResults')], '207' => ['description' => 'Some acknowledgements rejected', ...$json('AckResults')], '415' => ['$ref' => '#/components/responses/UnsupportedMediaType'], '422' => ['$ref' => '#/components/responses/ValidationFailed'], '503' => ['$ref' => '#/components/responses/IntegrationDisabled']]),
+            ]],
+            '/customers' => ['post' => [
+                'tags' => ['Customers'], 'operationId' => 'pushCustomers', 'summary' => 'Push 1C customers (1C wins)',
+                'description' => 'Ability `customers:write`. Synchronous, 1–200 per request, idempotent by `batch_id`. Matching (rev. 4): by tax ID (`tax_id`) ONLY; the tax ID is unique per partner, so duplicates cannot appear. A match is updated (1C values win on shared fields), the GUID in `id` is stored as information and "Sync with 1C" of the partner is switched on; its roles are not changed. No match → a new customer is created only while the CRM setting "1C may create new partners" is on, else `skipped` with `create_disabled`. Records without a tax ID are `skipped` with `tax_id_missing`. `crm_id` and the GUID are still accepted but never used for matching (deprecated for matching). A GUID already stored on another partner → `conflict`. `legal_type: individual` is skipped. The owner of a new customer is the CRM user with `manager.email`, else the configured default. Creates organizations with the customer role only.',
+                'parameters' => $push,
+                'requestBody' => ['required' => true, ...$json('CustomersPush', ['push' => ['value' => $this->exampleCustomersPush()]])],
+                'responses' => $common(['200' => ['description' => 'All records applied', ...$json('CustomersPushResult')], '207' => ['description' => 'Some records failed or conflict', ...$json('CustomersPushResult')], '409' => ['$ref' => '#/components/responses/Conflict'], '415' => ['$ref' => '#/components/responses/UnsupportedMediaType'], '422' => ['$ref' => '#/components/responses/ValidationFailed'], '503' => ['$ref' => '#/components/responses/IntegrationDisabled']]),
+            ]],
+            '/outbox/pending' => ['get' => [
+                'tags' => ['Document outbox (pull)'], 'operationId' => 'pullOutbox', 'summary' => 'Pull CRM documents of one feed',
+                'description' => "Feed abilities: `orders` → `orders:read`, `payments` → `payments:read`, `warehouse` → `warehouse:read`. Events are ordered by `sequence`; for one document a later event is held back until the earlier one is acknowledged (head-of-line), and order-feed events of a customer that has no 1C GUID yet are held until the customer is acknowledged. Pulled events stay open until acknowledged.\n\nEvent types: `order.confirmed`, `order.amended` (lines, discounts or quantities changed after the order started; the whole order is resent, `revision` rises), `order.cancelled`, `order.closed`, `invoice.issued`, `invoice.registered`, `invoice.voided`, `agreement.signed`, `agreement.terminated`, `delivery.posted`, `service_ticket.closed` (billable repair outside warranty, Spec 09) (feed `orders`); `payment.recorded`, `payment.refund_recorded`, `payment.voided` (feed `payments`); `goods_receipt.posted`, `goods_receipt.cancelled` (a 1C receipt cancelled in the CRM), `stock_off.posted` (stock write-off / damage act), `stock_adjustment.posted` (found serials, serial or quantity correction) (feed `warehouse`).",
+                'parameters' => [
+                    ['name' => 'feed', 'in' => 'query', 'required' => true, 'schema' => ['type' => 'string', 'enum' => ['orders', 'payments', 'warehouse']]],
+                    ['name' => 'limit', 'in' => 'query', 'schema' => ['type' => 'integer', 'minimum' => 1, 'maximum' => 500, 'default' => 200]],
+                    ['name' => 'cursor', 'in' => 'query', 'schema' => ['type' => 'string', 'pattern' => '^\d*$', 'default' => '0']],
+                    ...$signed,
+                ],
+                'responses' => $common(['200' => ['description' => 'A page of events', ...$json('OutboxPage', ['orders' => ['value' => $this->exampleOutboxPage()]])], '422' => ['$ref' => '#/components/responses/ValidationFailed'], '503' => ['$ref' => '#/components/responses/IntegrationDisabled']]),
+            ]],
+            '/outbox/ack' => ['post' => [
+                'tags' => ['Document outbox (pull)'], 'operationId' => 'ackOutbox', 'summary' => 'Acknowledge pulled documents',
+                'description' => '`{"acks": [...]}` (1–500); each ack needs the read ability of its event feed. `applied`/`already_applied`/`superseded` store the 1C GUID and number; `rejected` marks the document as rejected by 1C with your `errors`. Later `posting_status` changes (posted / unposted / deleted) may be re-sent for the same event; the newest `updated_at` wins.',
+                'parameters' => [...$signed],
+                'requestBody' => ['required' => true, ...$json('OutboxAcks', ['acks' => ['value' => $this->exampleOutboxAcks()]])],
+                'responses' => $common(['200' => ['description' => 'All applied', ...$json('AckResults')], '207' => ['description' => 'Some acknowledgements rejected', ...$json('AckResults')], '415' => ['$ref' => '#/components/responses/UnsupportedMediaType'], '422' => ['$ref' => '#/components/responses/ValidationFailed'], '503' => ['$ref' => '#/components/responses/IntegrationDisabled']]),
+            ]],
+            '/payments' => ['post' => [
+                'tags' => ['Payments (push)'], 'operationId' => 'pushPayments', 'summary' => 'Push payments booked in 1C',
+                'description' => 'Ability `payments:write`. Synchronous, 1–1000 per request, idempotent by `batch_id`. Matching: by 1C GUID, else `crm_id`, else amount/date/reference (`possible_duplicate`). The customer is found by `customer_id` (1C GUID) or `customer_crm_id`; without a match the payment is `unmatched` and waits for an accountant. Allocations to CRM orders are applied when they fit.',
+                'parameters' => $push,
+                'requestBody' => ['required' => true, ...$json('PaymentsPush', ['push' => ['value' => $this->examplePaymentsPush()]])],
+                'responses' => $common(['200' => ['description' => 'All records applied', ...$json('PaymentsPushResult')], '207' => ['description' => 'Some records failed', ...$json('PaymentsPushResult')]] + $pushErrors),
+            ]],
+            '/goods-receipts' => ['post' => [
+                'tags' => ['Goods receipts (push)'], 'operationId' => 'pushGoodsReceipts', 'summary' => 'Push goods receipts created in 1C',
+                'description' => 'Ability `warehouse:write`. Synchronous, 1–50 receipts per request, idempotent by `batch_id`; one transaction per receipt (a failed receipt leaves nothing behind). Supplier by tax ID only (`supplier.tax_id` required, else `tax_id_required`): a supplier not in the CRM is created with the supplier role, "Sync with 1C" on and a review flag. Items by 1C GUID; an unknown item needs `code`, `name` and `unit_id` (a known unit GUID) and is created with a review flag. Matching: `crm_id`, then `id`; see Document linking. Results: `created`, `updated`, `unchanged`, `cancelled` (`is_deleted` and no serial numbers entered yet), `cancel_requested` (`is_deleted` but serial numbers entered: the warehouse head decides), `failed` (with `errors`; `review_flagged: true` when the change was recorded for review). Codes: `tax_id_required`, `unknown_warehouse`, `unknown_unit`, `item_fields_required`, `item_code_taken`, `invalid_quantity`, `stale_version`, `stale_update`, `receipt_posted`, `receipt_cancelled`, `line_has_serials` (a line with serial numbers cannot change item or be removed), `id_mismatch`, `no_owner`.',
+                'parameters' => $push,
+                'requestBody' => ['required' => true, ...$json('GoodsReceiptsPush', ['push' => ['value' => $this->exampleGoodsReceiptsPush()]])],
+                'responses' => $common(['200' => ['description' => 'All receipts applied', ...$json('GoodsReceiptsPushResult', ['created' => ['value' => $this->exampleGoodsReceiptsResult()]])], '207' => ['description' => 'Some receipts failed', ...$json('GoodsReceiptsPushResult')]] + $pushErrors),
+            ]],
+            '/goods-receipts/{crmId}' => ['put' => [
+                'tags' => ['Goods receipts (push)'], 'operationId' => 'updateGoodsReceipt', 'summary' => 'Update one goods receipt by its CRM id',
+                'description' => 'Ability `warehouse:write`. Body: one `GoodsReceiptInbound` (same fields as in the push). The path id wins over `crm_id` in the body. 200 for `created`/`updated`/`unchanged`/`cancelled`/`cancel_requested`; 409 when the change is refused (`stale_version`, `stale_update`, `receipt_posted`, `receipt_cancelled`, `line_has_serials`, `id_mismatch`); 422 when the receipt is invalid.',
+                'parameters' => [['name' => 'crmId', 'in' => 'path', 'required' => true, 'schema' => ['type' => 'string', 'format' => 'uuid']], ...$signed],
+                'requestBody' => ['required' => true, ...$json('GoodsReceiptInbound')],
+                'responses' => $common([
+                    '200' => ['description' => 'Applied or unchanged', ...$json('GoodsReceiptUpdateResult')],
+                    '409' => ['description' => 'Refused: stale or already posted/cancelled', ...$json('GoodsReceiptUpdateResult')],
+                    '415' => ['$ref' => '#/components/responses/UnsupportedMediaType'],
+                    '422' => ['description' => 'Invalid receipt', ...$json('GoodsReceiptUpdateResult')],
+                    '503' => ['$ref' => '#/components/responses/IntegrationDisabled'],
+                ]),
+            ]],
+        ];
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    protected function parameters(): array
+    {
+        return [
+            'RequestId' => ['name' => 'X-Request-Id', 'in' => 'header', 'required' => false, 'schema' => ['type' => 'string', 'format' => 'uuid'], 'description' => 'Correlation id (UUID) echoed as `request_id`.'],
+            'Timestamp' => ['name' => 'X-Timestamp', 'in' => 'header', 'required' => false, 'schema' => ['type' => 'string', 'pattern' => '^\d+$'], 'description' => 'Unix time in seconds; required when the request must be signed. Tolerance ±300 s.'],
+            'Signature' => ['name' => 'X-Signature', 'in' => 'header', 'required' => false, 'schema' => ['type' => 'string', 'pattern' => '^sha256=[0-9a-f]{64}$'], 'description' => '`sha256=` + hex HMAC-SHA256 of `X-Timestamp + "." + raw body` with the token signing secret.'],
+            'IdempotencyKey' => ['name' => 'Idempotency-Key', 'in' => 'header', 'required' => false, 'schema' => ['type' => 'string', 'format' => 'uuid'], 'description' => 'Optional; must equal `batch_id`.'],
+        ];
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    protected function responses(): array
+    {
+        $error = fn (string $description, string $code, string $message, array $headers = []): array => array_filter([
+            'description' => $description,
+            'headers' => $headers ?: null,
+            'content' => ['application/json' => ['schema' => ['$ref' => '#/components/schemas/Error'], 'example' => ['error' => ['code' => $code, 'message' => $message, 'request_id' => '3f2b8c1e-6a4d-4e0f-9b7a-2c5d8e1f4a6b']]]],
+        ]);
+
+        return [
+            'BatchAccepted' => ['description' => 'Accepted for processing (all records valid).', 'headers' => ['Idempotent-Replayed' => ['$ref' => '#/components/headers/IdempotentReplayed']], 'content' => ['application/json' => ['schema' => ['$ref' => '#/components/schemas/BatchAccepted'], 'example' => $this->exampleAccepted([])]]],
+            'BatchPartlyAccepted' => ['description' => 'Accepted for processing; some records were rejected (listed in `rejected`).', 'content' => ['application/json' => ['schema' => ['$ref' => '#/components/schemas/BatchAccepted'], 'example' => $this->exampleAccepted([['section' => 'items', 'index' => 1, 'id' => '6b1c2d3e-4f50-4a6b-8c7d-9e0f1a2b3c4d', 'errors' => [['field' => 'unit_id', 'code' => 'required', 'message' => 'The unit_id field is required.']]]])]]],
+            'Unauthenticated' => $error('Missing, invalid, expired token; or missing/invalid signature.', 'unauthenticated', 'Invalid or missing API token.'),
+            'Forbidden' => $error('Token lacks the ability, IP not allowed, or HTTPS required.', 'forbidden_ability', 'This token lacks the [items:write] ability.'),
+            'NotFound' => $error('Not found (or not visible to this token).', 'not_found', 'Batch not found.'),
+            'Conflict' => $error('batch_id reused with another body, or snapshot parts disagree.', 'idempotency_key_reused', 'This batch_id was already used with a different body.'),
+            'PayloadTooLarge' => $error('Body over the limit (10 MB by default): split the batch.', 'payload_too_large', 'The request body exceeds the limit; split the batch.'),
+            'UnsupportedMediaType' => $error('Content-Type must be application/json.', 'unsupported_media_type', 'Send Content-Type: application/json; charset=utf-8.'),
+            'ValidationFailed' => $error('Envelope invalid, every record invalid, or bad paging parameters. `fields` lists the problems; for all-invalid batches `rejected` lists the records.', 'validation_failed', 'The batch envelope is invalid.'),
+            'RateLimited' => $error('Too many requests.', 'rate_limited', 'Too many requests; retry the same batch_id after Retry-After seconds.', ['Retry-After' => ['$ref' => '#/components/headers/RetryAfter']]),
+            'IntegrationDisabled' => $error('The integration (or the customer exchange) is switched off in the CRM.', 'integration_disabled', 'The 1C integration is disabled in the CRM.', ['Retry-After' => ['$ref' => '#/components/headers/RetryAfter']]),
+        ];
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    protected function schemas(): array
+    {
+        $guid = ['type' => 'string', 'format' => 'uuid', 'description' => '1C reference GUID'];
+        $nullableGuid = ['type' => ['string', 'null'], 'format' => 'uuid'];
+        $money = ['type' => 'string', 'pattern' => '^\d{1,15}(\.\d{1,6})?$', 'description' => 'Decimal in major units; rounded half-up to the currency precision (UZS/USD/EUR/RUB: 2).', 'examples' => ['1500000.00']];
+        $nullableMoney = [...$money, 'type' => ['string', 'null']];
+        $currency = ['type' => 'string', 'enum' => ['UZS', 'USD', 'EUR', 'RUB']];
+        $quantity = ['type' => 'string', 'pattern' => '^-?\d{1,12}(\.\d{1,3})?$', 'examples' => ['12.000']];
+        $dateTime = ['type' => 'string', 'description' => 'ISO 8601; without offset = Asia/Tashkent', 'examples' => ['2026-10-19T09:30:00+05:00']];
+        $common = [
+            'id' => $guid,
+            'is_deleted' => ['type' => 'boolean', 'description' => 'Marked for deletion in 1C: the CRM deactivates the record (never deletes it).'],
+            'updated_at' => [...$dateTime, 'description' => 'Last change in 1C; an older value never overwrites a newer one (stale).'],
+            'version' => ['type' => 'string', 'maxLength' => 64, 'description' => '1C data version (optional).'],
+        ];
+        $customerRef = ['type' => 'object', 'properties' => ['crm_id' => ['type' => ['string', 'null'], 'format' => 'uuid'], 'external_id' => $nullableGuid]];
+        $line = fn (array $extra): array => ['type' => 'object', 'properties' => [
+            'crm_order_line_id' => ['type' => 'string'],
+            'item_id' => [...$nullableGuid, 'description' => '1C item GUID'],
+            'accountant_code' => ['type' => ['string', 'null']], 'class_code' => ['type' => ['string', 'null']], 'package_code' => ['type' => ['string', 'null']],
+            'quantity' => $quantity, 'unit_price' => $money, 'net' => $money, 'vat' => $money, 'total' => $money,
+            ...$extra,
+        ]];
+
+        return [
+            'Error' => ['type' => 'object', 'required' => ['error'], 'properties' => ['error' => ['type' => 'object', 'required' => ['code', 'message', 'request_id'], 'properties' => [
+                'code' => ['type' => 'string', 'enum' => ['unauthenticated', 'signature_required', 'invalid_signature', 'ip_not_allowed', 'https_required', 'forbidden_ability', 'not_found', 'method_not_allowed', 'validation_failed', 'idempotency_key_reused', 'snapshot_mismatch', 'payload_too_large', 'unsupported_media_type', 'rate_limited', 'integration_disabled', 'internal_error', 'http_error']],
+                'message' => ['type' => 'string'],
+                'fields' => ['type' => 'object', 'additionalProperties' => ['type' => 'array', 'items' => ['type' => 'string']], 'description' => 'Field => list of error codes (required, invalid_guid, invalid_datetime, invalid_enum, must_be_array, too_many_records, ...).'],
+                'rejected' => ['type' => 'array', 'items' => ['$ref' => '#/components/schemas/RejectedRecord']],
+                'request_id' => ['type' => 'string', 'format' => 'uuid'],
+            ]]]],
+            'Ping' => ['type' => 'object', 'properties' => [
+                'status' => ['type' => 'string', 'const' => 'ok'], 'api_version' => ['type' => 'string'], 'server_time' => ['type' => 'string', 'format' => 'date-time'],
+                'token' => ['type' => 'object', 'properties' => ['name' => ['type' => 'string'], 'abilities' => ['type' => 'array', 'items' => ['type' => 'string']], 'expires_at' => ['type' => 'string', 'format' => 'date-time']]],
+                'integration_enabled' => ['type' => 'boolean'], 'request_id' => ['type' => 'string', 'format' => 'uuid'],
+            ]],
+            'Envelope' => ['type' => 'object', 'required' => ['batch_id', 'mode', 'sent_at'], 'properties' => [
+                'batch_id' => ['type' => 'string', 'format' => 'uuid', 'description' => 'New UUID per batch; reuse it only to retry the same body.'],
+                'mode' => ['type' => 'string', 'enum' => ['delta', 'full']],
+                'sent_at' => $dateTime,
+                'source' => ['type' => 'object', 'description' => 'Free information about the sender (base name, user, version).', 'additionalProperties' => true],
+                'snapshot' => ['$ref' => '#/components/schemas/Snapshot'],
+            ]],
+            'Snapshot' => ['type' => 'object', 'description' => 'Required for mode=full. All parts of one snapshot use the same id and total_parts.', 'required' => ['id', 'part', 'total_parts'], 'properties' => [
+                'id' => ['type' => 'string', 'format' => 'uuid'], 'part' => ['type' => 'integer', 'minimum' => 1], 'total_parts' => ['type' => 'integer', 'minimum' => 1, 'maximum' => 10000],
+                'scope' => ['type' => 'object', 'properties' => ['warehouse_ids' => ['type' => 'array', 'items' => $guid, 'description' => 'Stock snapshot limited to these warehouses.']]],
+            ]],
+            'Unit' => ['type' => 'object', 'required' => ['id', 'is_deleted', 'updated_at', 'code', 'name'], 'properties' => [...$common, 'code' => ['type' => 'string', 'maxLength' => 16, 'description' => 'OKEI code (796 = pcs, 166 = kg, 006 = m, ...). The quantity precision of a new unit is set in the CRM.'], 'name' => ['type' => 'string', 'maxLength' => 64]]],
+            'Group' => ['type' => 'object', 'required' => ['id', 'is_deleted', 'updated_at', 'name'], 'properties' => [...$common, 'code' => ['type' => 'string', 'maxLength' => 50], 'name' => ['type' => 'string', 'maxLength' => 120], 'parent_id' => $nullableGuid]],
+            'Item' => ['type' => 'object', 'required' => ['id', 'is_deleted', 'updated_at', 'code', 'name', 'type', 'unit_id', 'vat_rate'], 'properties' => [
+                ...$common,
+                'code' => ['type' => 'string', 'maxLength' => 64, 'description' => '1C code; shown as SKU in the CRM.'],
+                'article' => ['type' => ['string', 'null'], 'maxLength' => 64],
+                'name' => ['type' => 'string', 'maxLength' => 255],
+                'description' => ['type' => ['string', 'null']],
+                'type' => ['type' => 'string', 'enum' => ['product', 'service']],
+                'group_id' => $nullableGuid,
+                'unit_id' => $guid,
+                'vat_rate' => ['type' => 'string', 'description' => 'Percent ("12", "0") or "exempt". Stored as basis points (12 % = 1200).', 'examples' => ['12']],
+                'accountant_code' => ['type' => ['string', 'null'], 'maxLength' => 64],
+                'class_code' => ['type' => ['string', 'null'], 'pattern' => '^\d{1,17}$', 'description' => 'IKPU (MXIK) code, normally 17 digits.'],
+                'package_code' => ['type' => ['string', 'null'], 'pattern' => '^\d{1,32}$'],
+                'is_serialized' => ['type' => ['boolean', 'null'], 'description' => 'Serial numbers are then tracked in the CRM (CRM-owned registry).'],
+                'sale_price' => [...$nullableMoney, 'description' => 'Absent = keep, null = clear.'],
+                'sale_currency' => $currency,
+                'purchase_price' => [...$nullableMoney, 'description' => 'Absent = keep, null = clear.'],
+                'purchase_currency' => $currency,
+                'prices_include_vat' => ['type' => ['boolean', 'null']],
+            ]],
+            'Warehouse' => ['type' => 'object', 'required' => ['id', 'is_deleted', 'updated_at', 'name'], 'properties' => [...$common, 'code' => ['type' => 'string', 'maxLength' => 50], 'name' => ['type' => 'string', 'maxLength' => 255]]],
+            'StockRow' => ['type' => 'object', 'required' => ['item_id', 'warehouse_id', 'quantity'], 'properties' => [
+                'item_id' => $guid, 'warehouse_id' => $guid, 'quantity' => $quantity,
+                'reserved' => [...$quantity, 'description' => 'Reserved in 1C (not negative).'],
+                'cost' => [...$money, 'pattern' => '^-?\d{1,15}(\.\d{1,6})?$', 'description' => 'Total cost of `quantity` (preferred).'],
+                'unit_cost' => [...$money, 'description' => 'Cost per unit, used when `cost` is absent.'],
+                'cost_currency' => $currency,
+            ]],
+            'ItemsBatch' => ['allOf' => [['$ref' => '#/components/schemas/Envelope'], ['type' => 'object', 'properties' => [
+                'units' => ['type' => 'array', 'items' => ['$ref' => '#/components/schemas/Unit']],
+                'groups' => ['type' => 'array', 'items' => ['$ref' => '#/components/schemas/Group']],
+                'items' => ['type' => 'array', 'items' => ['$ref' => '#/components/schemas/Item']],
+            ]]]],
+            'StockBatch' => ['allOf' => [['$ref' => '#/components/schemas/Envelope'], ['type' => 'object', 'required' => ['as_of'], 'properties' => [
+                'as_of' => $dateTime,
+                'warehouses' => ['type' => 'array', 'items' => ['$ref' => '#/components/schemas/Warehouse']],
+                'stock' => ['type' => 'array', 'items' => ['$ref' => '#/components/schemas/StockRow']],
+            ]]]],
+            'CombinedBatch' => ['allOf' => [['$ref' => '#/components/schemas/Envelope'], ['type' => 'object', 'properties' => [
+                'items' => ['type' => 'object', 'properties' => ['units' => ['type' => 'array', 'items' => ['$ref' => '#/components/schemas/Unit']], 'groups' => ['type' => 'array', 'items' => ['$ref' => '#/components/schemas/Group']], 'items' => ['type' => 'array', 'items' => ['$ref' => '#/components/schemas/Item']]]],
+                'stock' => ['type' => 'object', 'required' => ['as_of'], 'properties' => ['as_of' => $dateTime, 'warehouses' => ['type' => 'array', 'items' => ['$ref' => '#/components/schemas/Warehouse']], 'stock' => ['type' => 'array', 'items' => ['$ref' => '#/components/schemas/StockRow']]]],
+            ]]]],
+            'RejectedRecord' => ['type' => 'object', 'properties' => [
+                'section' => ['type' => 'string', 'enum' => ['units', 'groups', 'items', 'warehouses', 'stock']], 'index' => ['type' => 'integer'], 'id' => ['type' => ['string', 'null']],
+                'errors' => ['type' => 'array', 'items' => ['type' => 'object', 'properties' => ['field' => ['type' => 'string'], 'code' => ['type' => 'string'], 'message' => ['type' => 'string']]]],
+            ]],
+            'BatchAccepted' => ['type' => 'object', 'properties' => [
+                'batch_id' => ['type' => 'string', 'format' => 'uuid'], 'status' => ['type' => 'string', 'const' => 'queued'],
+                'received' => ['type' => 'object', 'additionalProperties' => ['type' => 'integer']], 'accepted' => ['type' => 'integer'],
+                'rejected' => ['type' => 'array', 'items' => ['$ref' => '#/components/schemas/RejectedRecord']],
+                'status_url' => ['type' => 'string'], 'request_id' => ['type' => 'string', 'format' => 'uuid'],
+            ]],
+            'BatchStatus' => ['type' => 'object', 'properties' => [
+                'batch_id' => ['type' => 'string', 'format' => 'uuid'],
+                'status' => ['type' => 'string', 'enum' => ['received', 'queued', 'processing', 'processed', 'partial', 'failed', 'rejected']],
+                'mode' => ['type' => ['string', 'null'], 'enum' => ['delta', 'full', null]], 'endpoint' => ['type' => 'string'],
+                'received_at' => ['type' => 'string', 'format' => 'date-time'], 'processed_at' => ['type' => ['string', 'null'], 'format' => 'date-time'],
+                'counts' => ['type' => 'object', 'description' => 'created, updated, unchanged, stale, deactivated, failed', 'additionalProperties' => ['type' => 'integer']],
+                'rejected' => ['type' => 'array', 'items' => ['$ref' => '#/components/schemas/RejectedRecord']],
+                'errors' => ['type' => 'array', 'items' => ['type' => 'object', 'additionalProperties' => true]],
+                'snapshot' => ['type' => ['object', 'null'], 'properties' => ['id' => ['type' => 'string'], 'part' => ['type' => 'integer'], 'total_parts' => ['type' => 'integer']]],
+                'request_id' => ['type' => 'string', 'format' => 'uuid'],
+            ]],
+            'CustomerContact' => ['type' => 'object', 'properties' => [
+                'crm_id' => ['type' => 'string', 'format' => 'uuid'], 'external_id' => $nullableGuid,
+                'first_name' => ['type' => 'string'], 'last_name' => ['type' => ['string', 'null']], 'position' => ['type' => ['string', 'null']],
+                'phone' => ['type' => ['string', 'null']], 'email' => ['type' => ['string', 'null']], 'is_primary' => ['type' => 'boolean'], 'is_deleted' => ['type' => 'boolean'],
+            ]],
+            'CustomerOutboxEntry' => ['type' => 'object', 'properties' => [
+                'outbox_id' => ['type' => 'integer'], 'queued_at' => ['type' => 'string', 'format' => 'date-time'],
+                'reason' => ['type' => 'string', 'enum' => ['created', 'updated', 'contacts', 'resync']], 'delivery_count' => ['type' => 'integer'],
+                'crm_id' => ['type' => 'string', 'format' => 'uuid', 'description' => 'CRM organization UUID; send it back in the ack.'],
+                'external_id' => $nullableGuid, 'external_version' => ['type' => ['string', 'null']],
+                'legal_type' => ['type' => 'string', 'enum' => ['legal_entity', 'sole_proprietor']],
+                'name' => ['type' => 'string'], 'full_name' => ['type' => ['string', 'null']], 'tax_id' => ['type' => ['string', 'null']],
+                'country' => ['type' => 'string', 'description' => 'ISO 3166-1 alpha-2'], 'city' => ['type' => ['string', 'null']], 'address' => ['type' => ['string', 'null']],
+                'postal_code' => ['type' => ['string', 'null']], 'phone' => ['type' => ['string', 'null']], 'email' => ['type' => ['string', 'null']],
+                'contacts' => ['type' => 'array', 'items' => ['$ref' => '#/components/schemas/CustomerContact']],
+            ]],
+            'CustomersPage' => ['type' => 'object', 'properties' => [
+                'data' => ['type' => 'array', 'items' => ['$ref' => '#/components/schemas/CustomerOutboxEntry']],
+                'next_cursor' => ['type' => 'string'], 'has_more' => ['type' => 'boolean'], 'server_time' => ['type' => 'string', 'format' => 'date-time'], 'request_id' => ['type' => 'string', 'format' => 'uuid'],
+            ]],
+            'CustomerAck' => ['type' => 'object', 'required' => ['crm_id', 'status'], 'properties' => [
+                'crm_id' => ['type' => 'string', 'format' => 'uuid'], 'outbox_id' => ['type' => ['integer', 'null'], 'description' => 'Recommended; without it the latest open entry is acknowledged.'],
+                'status' => ['type' => 'string', 'enum' => ['synced', 'failed']],
+                'external_id' => [...$guid, 'description' => 'Required for synced: the 1C GUID of the counterparty.'],
+                'external_code' => ['type' => 'string', 'maxLength' => 50], 'external_version' => ['type' => 'string', 'maxLength' => 64],
+                'contacts' => ['type' => 'array', 'items' => ['type' => 'object', 'properties' => ['crm_id' => ['type' => 'string', 'format' => 'uuid'], 'external_id' => $guid]]],
+                'error' => ['type' => 'object', 'description' => 'For failed: shown to CRM users.', 'properties' => ['code' => ['type' => 'string'], 'message' => ['type' => 'string'], 'fields' => ['type' => 'array', 'items' => ['type' => 'string']]]],
+            ]],
+            'CustomerAcks' => ['oneOf' => [['$ref' => '#/components/schemas/CustomerAck'], ['type' => 'object', 'required' => ['acks'], 'properties' => ['acks' => ['type' => 'array', 'minItems' => 1, 'maxItems' => 500, 'items' => ['$ref' => '#/components/schemas/CustomerAck']]]]]],
+            'AckResults' => ['type' => 'object', 'properties' => [
+                'results' => ['type' => 'array', 'items' => ['type' => 'object', 'properties' => [
+                    'index' => ['type' => 'integer'], 'crm_id' => ['type' => ['string', 'null']], 'outbox_id' => ['type' => ['integer', 'null']], 'event_id' => ['type' => ['string', 'null']],
+                    'result' => ['type' => 'string', 'enum' => ['applied', 'already_applied', 'superseded', 'rejected']],
+                    'errors' => ['type' => 'array', 'items' => ['type' => 'object', 'properties' => ['field' => ['type' => ['string', 'null']], 'code' => ['type' => 'string', 'description' => 'validation_failed, unknown_crm_id, unknown_outbox_id, nothing_pending, already_acknowledged, external_id_taken, unknown_event_id, feed_not_allowed']]]],
+                ]]],
+                'request_id' => ['type' => 'string', 'format' => 'uuid'],
+            ]],
+            'CustomerInbound' => ['type' => 'object', 'required' => ['id', 'name', 'legal_type', 'is_deleted', 'updated_at'], 'properties' => [
+                ...$common,
+                'code' => ['type' => 'string', 'maxLength' => 50],
+                'crm_id' => ['type' => ['string', 'null'], 'format' => 'uuid', 'description' => 'Set when 1C created the counterparty from a CRM customer it pulled.'],
+                'legal_type' => ['type' => 'string', 'enum' => ['legal_entity', 'sole_proprietor', 'individual'], 'description' => '`individual` is skipped.'],
+                'name' => ['type' => 'string', 'maxLength' => 255], 'full_name' => ['type' => ['string', 'null']], 'tax_id' => ['type' => ['string', 'null'], 'maxLength' => 32],
+                'country' => ['type' => ['string', 'null']], 'city' => ['type' => ['string', 'null']], 'address' => ['type' => ['string', 'null']], 'postal_code' => ['type' => ['string', 'null']],
+                'phone' => ['type' => ['string', 'null']], 'email' => ['type' => ['string', 'null']],
+                'manager' => ['type' => 'object', 'properties' => ['email' => ['type' => 'string']], 'description' => 'Owner of a new customer in the CRM (matched by e-mail).'],
+                'merged_into_id' => $nullableGuid,
+                'contacts' => ['type' => 'array', 'items' => ['type' => 'object', 'properties' => [
+                    'id' => $guid, 'crm_id' => ['type' => ['string', 'null'], 'format' => 'uuid'], 'first_name' => ['type' => 'string'], 'last_name' => ['type' => ['string', 'null']],
+                    'position' => ['type' => ['string', 'null']], 'phone' => ['type' => ['string', 'null']], 'email' => ['type' => ['string', 'null']], 'is_deleted' => ['type' => 'boolean'],
+                ]]],
+            ]],
+            'CustomersPush' => ['type' => 'object', 'required' => ['batch_id', 'sent_at', 'customers'], 'properties' => [
+                'batch_id' => ['type' => 'string', 'format' => 'uuid'], 'sent_at' => $dateTime,
+                'customers' => ['type' => 'array', 'minItems' => 1, 'maxItems' => 200, 'items' => ['$ref' => '#/components/schemas/CustomerInbound']],
+            ]],
+            'CustomersPushResult' => ['type' => 'object', 'properties' => [
+                'batch_id' => ['type' => 'string', 'format' => 'uuid'],
+                'results' => ['type' => 'array', 'items' => ['type' => 'object', 'properties' => [
+                    'index' => ['type' => 'integer'], 'id' => ['type' => ['string', 'null']], 'crm_id' => ['type' => ['string', 'null']],
+                    'result' => ['type' => 'string', 'enum' => ['created', 'linked', 'updated', 'unchanged', 'stale', 'skipped', 'conflict', 'failed']],
+                    'errors' => ['type' => 'array', 'items' => ['type' => 'object']], 'candidates' => ['type' => 'array', 'items' => ['type' => 'string', 'format' => 'uuid']],
+                ]]],
+                'request_id' => ['type' => 'string', 'format' => 'uuid'],
+            ]],
+            'OrganizationRoles' => ['type' => 'object', 'x-status' => 'informational', 'description' => 'Roles of a CRM organization (Spec 03 section 22). Not sent in this API version; documented so 1C knows that only customers are exchanged.', 'properties' => [
+                'is_customer' => ['type' => 'boolean'], 'is_supplier' => ['type' => 'boolean'], 'is_carrier' => ['type' => 'boolean'],
+            ]],
+            'SupplierProfile' => ['type' => 'object', 'x-status' => 'prepared-not-active', 'description' => 'Prepared columns of the supplier/carrier profile for a future pull of 1C suppliers. No endpoint accepts or returns them yet.', 'properties' => [
+                'external_id' => $nullableGuid, 'synced_at' => ['type' => ['string', 'null'], 'format' => 'date-time'],
+            ]],
+            'OutboxEvent' => ['type' => 'object', 'properties' => [
+                'sequence' => ['type' => 'integer'], 'event_id' => ['type' => 'string', 'format' => 'uuid', 'description' => 'Send back in the ack.'],
+                'event_type' => ['type' => 'string', 'enum' => ['order.confirmed', 'order.amended', 'order.cancelled', 'order.closed', 'invoice.issued', 'invoice.registered', 'invoice.voided', 'agreement.signed', 'agreement.terminated', 'delivery.posted', 'payment.recorded', 'payment.refund_recorded', 'payment.voided', 'goods_receipt.posted', 'goods_receipt.cancelled', 'stock_off.posted', 'stock_adjustment.posted', 'service_ticket.closed']],
+                'occurred_at' => ['type' => 'string', 'format' => 'date-time'],
+                'aggregate' => ['type' => 'object', 'properties' => ['type' => ['type' => 'string', 'enum' => ['order', 'invoice', 'agreement', 'delivery', 'payment', 'goods_receipt', 'stock_off_act', 'stock_adjustment', 'service_ticket']], 'crm_id' => ['type' => 'string', 'format' => 'uuid'], 'version' => ['type' => 'integer']]],
+                'payload' => ['anyOf' => [
+                    ['$ref' => '#/components/schemas/OrderPayload'], ['$ref' => '#/components/schemas/InvoicePayload'], ['$ref' => '#/components/schemas/AgreementPayload'],
+                    ['$ref' => '#/components/schemas/DeliveryPayload'], ['$ref' => '#/components/schemas/PaymentPayload'], ['$ref' => '#/components/schemas/GoodsReceiptPayload'],
+                    ['$ref' => '#/components/schemas/ServiceTicketPayload'], ['$ref' => '#/components/schemas/StockOffPayload'], ['$ref' => '#/components/schemas/StockAdjustmentPayload'],
+                ], 'description' => 'Chosen by aggregate.type.'],
+            ]],
+            'OutboxPage' => ['type' => 'object', 'properties' => [
+                'data' => ['type' => 'array', 'items' => ['$ref' => '#/components/schemas/OutboxEvent']],
+                'next_cursor' => ['type' => ['string', 'null']], 'has_more' => ['type' => 'boolean'], 'server_time' => ['type' => 'string', 'format' => 'date-time'], 'request_id' => ['type' => 'string', 'format' => 'uuid'],
+            ]],
+            'OrderPayload' => ['type' => 'object', 'properties' => [
+                'number' => ['type' => 'string'], 'date' => ['type' => 'string', 'format' => 'date'], 'currency' => $currency, 'prices_include_vat' => ['type' => 'boolean'],
+                'status' => ['type' => 'string'], 'customer' => $customerRef,
+                'power_of_attorney' => ['$ref' => '#/components/schemas/PowerOfAttorney'],
+                'source' => ['type' => 'string', 'enum' => ['offer', 'manual'], 'description' => 'Accepted offer, or a manual order entered by sales (Spec 06 section 31).'],
+                'delivery_method' => ['type' => 'string', 'enum' => ['delivery', 'pickup']],
+                'payment_terms' => ['type' => 'object', 'properties' => ['prepayment_percent' => ['type' => ['string', 'null']], 'deferred_days' => ['type' => ['integer', 'null']]]],
+                'delivery' => ['type' => 'object', 'properties' => ['address' => ['type' => ['string', 'null']], 'promised_on' => ['type' => ['string', 'null'], 'format' => 'date']]],
+                'lines' => ['type' => 'array', 'items' => $line(['sku' => ['type' => 'string'], 'name' => ['type' => 'string'], 'unit_code' => ['type' => ['string', 'null']], 'discount_percent' => ['type' => 'string'], 'cancelled_quantity' => ['type' => 'string', 'description' => 'Closed short or removed by an amendment; the amounts cover quantity minus cancelled_quantity.'], 'vat_rate' => ['type' => 'string'], 'vat_exempt' => ['type' => 'boolean']])],
+                'totals' => ['type' => 'object', 'properties' => ['net' => $money, 'vat' => $money, 'total' => $money]],
+                'cancel_reason' => ['type' => ['string', 'null']],
+            ]],
+            'InvoicePayload' => ['type' => 'object', 'properties' => [
+                'type' => ['type' => 'string', 'enum' => ['proforma', 'tax_invoice', 'act', 'waybill', 'receipt'], 'description' => 'receipt = retail sales receipt; tax_invoice = registered ESF'], 'status' => ['type' => 'string'], 'number' => ['type' => 'string'],
+                'date' => ['type' => 'string', 'format' => 'date'], 'due_on' => ['type' => ['string', 'null'], 'format' => 'date'],
+                'order' => ['type' => 'object', 'properties' => ['crm_id' => ['type' => 'string', 'format' => 'uuid'], 'number' => ['type' => 'string'], 'external_id' => $nullableGuid, 'power_of_attorney' => ['$ref' => '#/components/schemas/PowerOfAttorney']]],
+                'customer' => $customerRef, 'currency' => $currency, 'esf_id' => ['type' => ['string', 'null']], 'requested_amount' => $nullableMoney,
+                'lines' => ['type' => 'array', 'items' => $line(['vat_rate' => ['type' => 'string']])],
+                'totals' => ['type' => 'object', 'properties' => ['net' => $money, 'vat' => $money, 'total' => $money]], 'void_reason' => ['type' => ['string', 'null']],
+            ]],
+            'AgreementPayload' => ['type' => 'object', 'properties' => [
+                'number' => ['type' => 'string'], 'kind' => ['type' => 'string'], 'status' => ['type' => 'string'], 'customer' => $customerRef,
+                'order' => ['type' => ['object', 'null'], 'properties' => ['crm_id' => ['type' => 'string'], 'number' => ['type' => 'string']]],
+                'signed_on' => ['type' => ['string', 'null'], 'format' => 'date'], 'starts_on' => ['type' => ['string', 'null'], 'format' => 'date'], 'ends_on' => ['type' => ['string', 'null'], 'format' => 'date'],
+                'terminated_on' => ['type' => ['string', 'null'], 'format' => 'date'], 'value' => $nullableMoney, 'currency' => ['type' => ['string', 'null']],
+            ]],
+            'DeliveryPayload' => ['type' => 'object', 'description' => 'Sales document (delivery note) with the serial numbers shipped.', 'properties' => [
+                'number' => ['type' => 'string'], 'date' => ['type' => 'string', 'format' => 'date'],
+                'order' => ['type' => 'object', 'properties' => ['crm_id' => ['type' => 'string', 'format' => 'uuid'], 'number' => ['type' => 'string'], 'external_id' => $nullableGuid, 'power_of_attorney' => ['$ref' => '#/components/schemas/PowerOfAttorney'], 'source' => ['type' => 'string', 'enum' => ['offer', 'manual']]]],
+                'delivery_method' => ['type' => 'string', 'enum' => ['delivery', 'pickup']],
+                'pickup' => ['type' => ['object', 'null'], 'description' => 'Self pick-up handover: who collected the goods and their document.', 'properties' => ['person' => ['type' => ['string', 'null']], 'document' => ['type' => ['string', 'null']]]],
+                'customer' => $customerRef, 'warehouse_id' => $nullableGuid, 'currency' => $currency,
+                'lines' => ['type' => 'array', 'items' => $line(['serials' => ['type' => 'array', 'items' => ['type' => 'string'], 'description' => 'Serial numbers shipped (CRM-owned registry).']])],
+            ]],
+            'PaymentPayload' => ['type' => 'object', 'properties' => [
+                'number' => ['type' => 'string'], 'direction' => ['type' => 'string', 'enum' => ['incoming', 'outgoing']], 'kind' => ['type' => 'string', 'enum' => ['receipt', 'refund']],
+                'status' => ['type' => 'string'], 'customer' => $customerRef, 'amount' => $money, 'currency' => $currency, 'paid_on' => ['type' => 'string', 'format' => 'date'],
+                'method' => ['type' => 'string', 'enum' => ['bank_transfer', 'cash', 'card']], 'bank_account_id' => $nullableGuid,
+                'payer_name' => ['type' => ['string', 'null']], 'payer_tax_id' => ['type' => ['string', 'null']], 'reference_number' => ['type' => ['string', 'null']], 'purpose' => ['type' => ['string', 'null']],
+                'refund_of' => ['type' => ['object', 'null'], 'properties' => ['crm_id' => ['type' => 'string'], 'external_id' => $nullableGuid]],
+                'allocations' => ['type' => 'array', 'items' => ['type' => 'object', 'properties' => ['order_crm_id' => ['type' => 'string', 'format' => 'uuid'], 'order_number' => ['type' => 'string'], 'amount' => $money]]],
+                'void_reason' => ['type' => ['string', 'null']],
+            ]],
+            'GoodsReceiptPayload' => ['type' => 'object', 'properties' => [
+                'number' => ['type' => 'string'], 'date' => ['type' => 'string', 'format' => 'date'],
+                'status' => ['type' => 'string', 'enum' => ['posted', 'cancelled']],
+                'source_type' => ['type' => 'string', 'enum' => ['supplier_delivery', 'opening_balance', 'customer_return', 'purchase_order', 'shipment', 'manual_registration']],
+                'onec_document' => ['type' => ['object', 'null'], 'description' => 'The 1C document this receipt completes (null for receipts created in the CRM).', 'properties' => ['id' => $guid, 'number' => ['type' => 'string'], 'version' => ['type' => 'integer']]],
+                'supplier_tax_id' => ['type' => ['string', 'null']],
+                'supplier_doc_ref' => ['type' => ['string', 'null']], 'warehouse_id' => $nullableGuid, 'customer' => ['oneOf' => [$customerRef, ['type' => 'null']]], 'return_of_delivery' => ['type' => ['string', 'null']],
+                'lines' => ['type' => 'array', 'items' => ['type' => 'object', 'properties' => [
+                    'line_id' => [...$nullableGuid, 'description' => 'Your 1C line id (receipts pushed by 1C).'],
+                    'item_id' => $nullableGuid, 'accountant_code' => ['type' => ['string', 'null']],
+                    'expected' => ['type' => ['string', 'null'], 'description' => 'Expected quantity from the 1C document.'], 'received' => [...$quantity, 'description' => 'Serialized lines: number of serial numbers entered.'], 'damaged' => [...$quantity, 'description' => 'Serialized lines: number of serials flagged damaged (quarantined).'],
+                    'discrepancy' => ['type' => ['string', 'null'], 'description' => 'received − expected (negative = shortage).'],
+                    'discrepancy_reason' => ['type' => ['string', 'null'], 'enum' => ['short', 'over', 'damaged', 'wrong_item', 'other', null]], 'note' => ['type' => ['string', 'null']],
+                    'serials' => ['type' => ['array', 'null'], 'items' => ['type' => 'string'], 'description' => 'Only for customer returns, or when enabled in the CRM.'],
+                    'damaged_serials' => ['type' => ['array', 'null'], 'items' => ['type' => 'string'], 'description' => 'Serials flagged damaged (when serials are sent).'],
+                ]]],
+            ]],
+            'PowerOfAttorney' => ['type' => 'object', 'description' => 'Power of attorney checkbox of the order (Spec 06 section 28): required for B2B legal entities by default; the tax invoice (счёт-фактура) is registered only after it is received or overridden.', 'properties' => [
+                'required' => ['type' => 'boolean'], 'received' => ['type' => 'boolean'], 'received_at' => ['type' => ['string', 'null'], 'format' => 'date-time'],
+                'note' => ['type' => ['string', 'null'], 'description' => 'Free text, e.g. number, date and representative.'], 'overridden' => ['type' => 'boolean'],
+            ]],
+            'StockAdjustmentPayload' => ['type' => 'object', 'description' => 'Stock adjustment posted in the CRM (Spec 06 section 21.4): found serials, a serial replaced on a posted delivery note, or a quantity correction. 1C stays the quantity truth.', 'properties' => [
+                'number' => ['type' => 'string'], 'date' => ['type' => ['string', 'null'], 'format' => 'date'],
+                'type' => ['type' => 'string', 'enum' => ['found', 'serial_correction', 'qty_correction']],
+                'reason' => ['type' => 'string'], 'warehouse_id' => $nullableGuid,
+                'delivery' => ['type' => ['object', 'null'], 'properties' => ['crm_id' => ['type' => 'string', 'format' => 'uuid'], 'number' => ['type' => 'string']]],
+                'lines' => ['type' => 'array', 'items' => ['type' => 'object', 'properties' => [
+                    'item_id' => $nullableGuid, 'accountant_code' => ['type' => ['string', 'null']], 'quantity' => ['type' => 'string', 'description' => 'Signed for quantity corrections.'],
+                    'serial' => ['type' => ['string', 'null']], 'old_serial' => ['type' => ['string', 'null']], 'old_serial_outcome' => ['type' => ['string', 'null'], 'enum' => ['available', 'quarantined', null]],
+                ]]],
+            ]],
+            'StockOffPayload' => ['type' => 'object', 'description' => 'Stock write-off / damage act posted in the CRM (Spec 06 section 27): write the quantities off in 1C. 1C stays the quantity truth.', 'properties' => [
+                'number' => ['type' => 'string'], 'date' => ['type' => ['string', 'null'], 'format' => 'date'],
+                'reason' => ['type' => 'string', 'enum' => ['damaged_at_receipt', 'damaged_in_storage', 'damaged_in_transit', 'lost', 'theft', 'expired', 'quality_rejection', 'internal_use', 'sample', 'return_rejected', 'other']],
+                'note' => ['type' => ['string', 'null']], 'warehouse_id' => $nullableGuid,
+                'goods_receipt' => ['type' => ['object', 'null'], 'properties' => ['crm_id' => ['type' => 'string', 'format' => 'uuid'], 'number' => ['type' => 'string'], 'onec_document_id' => $nullableGuid]],
+                'supplier_tax_id' => ['type' => ['string', 'null']],
+                'claim' => ['type' => ['object', 'null'], 'properties' => ['status' => ['type' => 'string', 'enum' => ['open', 'settled', 'rejected']], 'reference' => ['type' => ['string', 'null']]]],
+                'totals' => ['type' => 'object', 'additionalProperties' => $money, 'description' => 'Estimated value per currency (from the stock cost).'],
+                'lines' => ['type' => 'array', 'items' => ['type' => 'object', 'properties' => [
+                    'item_id' => $nullableGuid, 'accountant_code' => ['type' => ['string', 'null']], 'quantity' => $quantity,
+                    'value' => $nullableMoney, 'currency' => ['type' => ['string', 'null']],
+                    'serials' => ['type' => ['array', 'null'], 'items' => ['type' => 'string'], 'description' => 'Only when enabled in the CRM.'],
+                ]]],
+            ]],
+            'GoodsReceiptInbound' => ['type' => 'object', 'required' => ['id', 'number', 'date', 'warehouse_id', 'supplier', 'lines'], 'properties' => [
+                'id' => [...$guid, 'description' => '1C document GUID (echoed back).'],
+                'crm_id' => ['type' => ['string', 'null'], 'format' => 'uuid', 'description' => 'CRM id from an earlier answer; matched first.'],
+                'version' => ['type' => ['integer', 'null'], 'minimum' => 1, 'description' => 'CRM version from the last answer; an older one is `stale_version`.'],
+                'updated_at' => [...$dateTime, 'description' => 'When the document changed in 1C; older than the stored one is `stale_update`.'],
+                'number' => ['type' => 'string', 'maxLength' => 50], 'date' => ['type' => 'string', 'format' => 'date'], 'warehouse_id' => $guid,
+                'supplier' => ['type' => 'object', 'required' => ['tax_id'], 'properties' => ['tax_id' => ['type' => 'string', 'maxLength' => 32], 'name' => ['type' => 'string'], 'full_name' => ['type' => ['string', 'null']], 'country' => ['type' => ['string', 'null'], 'description' => 'ISO 3166-1 alpha-2']]],
+                'lines' => ['type' => 'array', 'minItems' => 1, 'maxItems' => 500, 'items' => ['type' => 'object', 'required' => ['line_id', 'item', 'expected_qty'], 'properties' => [
+                    'line_id' => [...$guid, 'description' => '1C line id (row key), unique in the document.'],
+                    'item' => ['type' => 'object', 'required' => ['id'], 'properties' => ['id' => $guid, 'code' => ['type' => 'string', 'maxLength' => 64], 'name' => ['type' => 'string'], 'unit_id' => $guid], 'description' => '`code`, `name`, `unit_id` are needed only when the item is not in the CRM yet.'],
+                    'expected_qty' => [...$quantity, 'description' => 'Quantity on the 1C document (> 0).'],
+                ]]],
+                'is_deleted' => ['type' => 'boolean', 'default' => false, 'description' => 'Deleted/cancelled in 1C.'],
+            ]],
+            'GoodsReceiptsPush' => ['type' => 'object', 'required' => ['batch_id', 'sent_at', 'receipts'], 'properties' => [
+                'batch_id' => ['type' => 'string', 'format' => 'uuid'], 'sent_at' => $dateTime,
+                'receipts' => ['type' => 'array', 'minItems' => 1, 'maxItems' => 50, 'items' => ['$ref' => '#/components/schemas/GoodsReceiptInbound']],
+            ]],
+            'GoodsReceiptResult' => ['type' => 'object', 'properties' => [
+                'id' => ['type' => ['string', 'null'], 'description' => 'Your 1C id, echoed.'], 'crm_id' => ['type' => ['string', 'null'], 'format' => 'uuid'],
+                'number' => ['type' => ['string', 'null'], 'description' => 'CRM number (GR-YYYY-NNNNN).'], 'version' => ['type' => ['integer', 'null']],
+                'result' => ['type' => 'string', 'enum' => ['created', 'updated', 'unchanged', 'cancelled', 'cancel_requested', 'failed']],
+                'review_flagged' => ['type' => 'boolean'],
+                'created' => ['type' => 'object', 'description' => 'What the push created in the CRM.', 'properties' => ['partner' => ['type' => 'boolean'], 'items' => ['type' => 'array', 'items' => ['type' => 'string']]]],
+                'errors' => ['type' => 'array', 'items' => ['type' => 'object', 'properties' => ['field' => ['type' => ['string', 'null']], 'code' => ['type' => 'string']]]],
+            ]],
+            'GoodsReceiptsPushResult' => ['type' => 'object', 'properties' => [
+                'batch_id' => ['type' => 'string', 'format' => 'uuid'],
+                'results' => ['type' => 'array', 'items' => ['allOf' => [['$ref' => '#/components/schemas/GoodsReceiptResult'], ['type' => 'object', 'properties' => ['index' => ['type' => 'integer']]]]]],
+                'request_id' => ['type' => 'string', 'format' => 'uuid'],
+            ]],
+            'GoodsReceiptUpdateResult' => ['type' => 'object', 'properties' => [
+                'data' => ['$ref' => '#/components/schemas/GoodsReceiptResult'], 'request_id' => ['type' => 'string', 'format' => 'uuid'],
+            ]],
+            'ServiceTicketPayload' => ['type' => 'object', 'description' => 'Billable repair closed outside warranty (Spec 09 §10): create a sales document for the service work in 1C.', 'properties' => [
+                'number' => ['type' => 'string'], 'date' => ['type' => ['string', 'null'], 'format' => 'date'], 'customer' => $customerRef, 'currency' => $currency,
+                'asset' => ['type' => 'object', 'properties' => ['item_id' => $nullableGuid, 'name' => ['type' => 'string'], 'serial' => ['type' => 'string']]],
+                'under_warranty' => ['type' => 'boolean', 'const' => false],
+                'parts' => ['type' => 'array', 'items' => ['type' => 'object', 'properties' => ['item_id' => $nullableGuid, 'description' => ['type' => 'string'], 'quantity' => $quantity, 'unit_price' => $money, 'total' => $money]]],
+                'labor' => $money, 'total' => $money, 'resolution' => ['type' => ['string', 'null']],
+            ]],
+            'OutboxAck' => ['type' => 'object', 'required' => ['event_id', 'result'], 'properties' => [
+                'event_id' => ['type' => 'string', 'format' => 'uuid'],
+                'result' => ['type' => 'string', 'enum' => ['applied', 'already_applied', 'superseded', 'rejected']],
+                'onec_guid' => [...$guid, 'description' => 'GUID of the 1C document created.'], 'onec_number' => ['type' => 'string', 'maxLength' => 40],
+                'posting_status' => ['type' => 'string', 'enum' => ['posted', 'unposted', 'deleted']], 'updated_at' => $dateTime,
+                'errors' => ['type' => 'array', 'items' => ['type' => 'object', 'properties' => ['code' => ['type' => 'string'], 'message' => ['type' => 'string']]], 'description' => 'For rejected.'],
+            ]],
+            'OutboxAcks' => ['type' => 'object', 'required' => ['acks'], 'properties' => ['acks' => ['type' => 'array', 'minItems' => 1, 'maxItems' => 500, 'items' => ['$ref' => '#/components/schemas/OutboxAck']]]],
+            'PaymentInbound' => ['type' => 'object', 'required' => ['id', 'amount', 'currency', 'paid_on', 'updated_at'], 'properties' => [
+                'id' => $guid, 'crm_id' => ['type' => ['string', 'null'], 'format' => 'uuid', 'description' => 'For payments the CRM recorded and 1C booked.'],
+                'number' => ['type' => 'string', 'maxLength' => 40], 'version' => ['type' => 'string'], 'posted' => ['type' => 'boolean', 'default' => true],
+                'direction' => ['type' => 'string', 'enum' => ['incoming', 'outgoing'], 'default' => 'incoming'], 'kind' => ['type' => 'string', 'enum' => ['receipt', 'refund'], 'default' => 'receipt'],
+                'method' => ['type' => 'string', 'enum' => ['bank_transfer', 'cash', 'card'], 'default' => 'bank_transfer'],
+                'customer_id' => [...$nullableGuid, 'description' => '1C GUID of the customer.'], 'customer_crm_id' => ['type' => ['string', 'null'], 'format' => 'uuid'],
+                'amount' => [...$money, 'description' => 'Positive amount in major units.'], 'currency' => $currency, 'paid_on' => ['type' => 'string', 'format' => 'date'],
+                'payer_name' => ['type' => ['string', 'null']], 'payer_tax_id' => ['type' => ['string', 'null']], 'reference_number' => ['type' => ['string', 'null']], 'purpose' => ['type' => ['string', 'null']],
+                'is_deleted' => ['type' => 'boolean', 'description' => 'Deleted in 1C: the CRM payment is voided.'], 'updated_at' => $dateTime,
+                'allocations' => ['type' => 'array', 'items' => ['type' => 'object', 'properties' => ['order_crm_id' => ['type' => 'string', 'format' => 'uuid'], 'amount' => $money]]],
+            ]],
+            'PaymentsPush' => ['type' => 'object', 'required' => ['batch_id', 'sent_at', 'payments'], 'properties' => [
+                'batch_id' => ['type' => 'string', 'format' => 'uuid'], 'sent_at' => $dateTime,
+                'payments' => ['type' => 'array', 'minItems' => 1, 'maxItems' => 1000, 'items' => ['$ref' => '#/components/schemas/PaymentInbound']],
+            ]],
+            'PaymentsPushResult' => ['type' => 'object', 'properties' => [
+                'batch_id' => ['type' => 'string', 'format' => 'uuid'],
+                'results' => ['type' => 'array', 'items' => ['type' => 'object', 'properties' => [
+                    'index' => ['type' => 'integer'], 'id' => ['type' => ['string', 'null']], 'crm_id' => ['type' => ['string', 'null']],
+                    'result' => ['type' => 'string', 'enum' => ['created', 'unmatched', 'possible_duplicate', 'updated', 'corrected', 'unchanged', 'voided', 'failed']],
+                    'errors' => ['type' => 'array', 'items' => ['type' => 'object']],
+                ]]],
+                'request_id' => ['type' => 'string', 'format' => 'uuid'],
+            ]],
+        ];
+    }
+
+    /** @return array<string, mixed> */
+    protected function examplePing(): array
+    {
+        return ['status' => 'ok', 'api_version' => '1.0', 'server_time' => '2026-10-19T09:30:00+00:00', 'token' => ['name' => '1C production', 'abilities' => ['items:write', 'stock:write', 'batches:read'], 'expires_at' => '2027-04-17T09:00:00+00:00'], 'integration_enabled' => true, 'request_id' => '3f2b8c1e-6a4d-4e0f-9b7a-2c5d8e1f4a6b'];
+    }
+
+    /** @return array<string, mixed> */
+    protected function exampleItemsBatch(): array
+    {
+        return [
+            'batch_id' => '0b6f6a4e-2c1d-4f3a-9e8b-7d6c5b4a3f21', 'mode' => 'delta', 'sent_at' => '2026-10-19T09:30:00+05:00',
+            'source' => ['base' => 'UT 11 production', 'user' => 'exchange'],
+            'units' => [['id' => '1a2b3c4d-0000-4000-8000-000000000796', 'code' => '796', 'name' => 'шт', 'is_deleted' => false, 'updated_at' => '2026-10-01T10:00:00+05:00']],
+            'groups' => [['id' => '2b3c4d5e-0000-4000-8000-000000000010', 'code' => '00010', 'name' => 'Network equipment', 'parent_id' => null, 'is_deleted' => false, 'updated_at' => '2026-10-01T10:00:00+05:00']],
+            'items' => [[
+                'id' => '6b1c2d3e-4f50-4a6b-8c7d-9e0f1a2b3c4d', 'code' => '00-00001234', 'article' => 'RB4011', 'name' => 'Router MikroTik RB4011iGS+RM',
+                'type' => 'product', 'group_id' => '2b3c4d5e-0000-4000-8000-000000000010', 'unit_id' => '1a2b3c4d-0000-4000-8000-000000000796', 'vat_rate' => '12',
+                'accountant_code' => '2.01.003', 'class_code' => '08471300001000000', 'package_code' => '1501467',
+                'is_serialized' => true, 'sale_price' => '2950000.00', 'sale_currency' => 'UZS', 'purchase_price' => '180.00', 'purchase_currency' => 'USD', 'prices_include_vat' => true,
+                'is_deleted' => false, 'updated_at' => '2026-10-19T09:12:44+05:00', 'version' => 'AAAAAgAAAAA=',
+            ]],
+        ];
+    }
+
+    /** @return array<string, mixed> */
+    protected function exampleStockBatch(): array
+    {
+        return [
+            'batch_id' => '5d4c3b2a-1f0e-4d9c-8b7a-6f5e4d3c2b1a', 'mode' => 'full', 'sent_at' => '2026-10-19T06:00:00+05:00',
+            'snapshot' => ['id' => '9e8d7c6b-5a49-4382-a716-f5e4d3c2b1a0', 'part' => 1, 'total_parts' => 3],
+            'as_of' => '2026-10-19T06:00:00+05:00',
+            'warehouses' => [['id' => '3c4d5e6f-0000-4000-8000-000000000001', 'code' => '000000001', 'name' => 'Main warehouse (Tashkent)', 'is_deleted' => false, 'updated_at' => '2026-09-01T10:00:00+05:00']],
+            'stock' => [
+                ['item_id' => '6b1c2d3e-4f50-4a6b-8c7d-9e0f1a2b3c4d', 'warehouse_id' => '3c4d5e6f-0000-4000-8000-000000000001', 'quantity' => '14', 'reserved' => '2', 'cost' => '29400000.00', 'cost_currency' => 'UZS'],
+                ['item_id' => '7c2d3e4f-5061-4b7c-9d8e-0f1a2b3c4d5e', 'warehouse_id' => '3c4d5e6f-0000-4000-8000-000000000001', 'quantity' => '120.500', 'unit_cost' => '1.85', 'cost_currency' => 'USD'],
+            ],
+        ];
+    }
+
+    /** @return array<string, mixed> */
+    protected function exampleCombinedBatch(): array
+    {
+        $items = $this->exampleItemsBatch();
+        $stock = $this->exampleStockBatch();
+
+        return [
+            'batch_id' => '4c3b2a19-0f1e-4d2c-8b3a-5f6e7d8c9b0a', 'mode' => 'delta', 'sent_at' => '2026-10-19T09:30:00+05:00',
+            'items' => ['units' => $items['units'], 'groups' => $items['groups'], 'items' => $items['items']],
+            'stock' => ['as_of' => '2026-10-19T09:30:00+05:00', 'warehouses' => $stock['warehouses'], 'stock' => [$stock['stock'][0]]],
+        ];
+    }
+
+    /** @param list<array<string, mixed>> $rejected
+     * @return array<string, mixed> */
+    protected function exampleAccepted(array $rejected): array
+    {
+        return ['batch_id' => '0b6f6a4e-2c1d-4f3a-9e8b-7d6c5b4a3f21', 'status' => 'queued', 'received' => ['units' => 1, 'groups' => 1, 'items' => 2], 'accepted' => 4 - count($rejected), 'rejected' => $rejected, 'status_url' => '/api/v1/integration/1c/batches/0b6f6a4e-2c1d-4f3a-9e8b-7d6c5b4a3f21', 'request_id' => '3f2b8c1e-6a4d-4e0f-9b7a-2c5d8e1f4a6b'];
+    }
+
+    /** @return array<string, mixed> */
+    protected function exampleBatchStatus(): array
+    {
+        return ['batch_id' => '0b6f6a4e-2c1d-4f3a-9e8b-7d6c5b4a3f21', 'status' => 'processed', 'mode' => 'delta', 'endpoint' => 'items', 'received_at' => '2026-10-19T04:30:01+00:00', 'processed_at' => '2026-10-19T04:30:03+00:00', 'counts' => ['created' => 1, 'updated' => 2, 'unchanged' => 0, 'stale' => 0, 'deactivated' => 0, 'failed' => 0], 'rejected' => [], 'errors' => [], 'snapshot' => null, 'request_id' => '3f2b8c1e-6a4d-4e0f-9b7a-2c5d8e1f4a6b'];
+    }
+
+    /** @return array<string, mixed> */
+    protected function exampleCustomersPage(): array
+    {
+        return ['data' => [[
+            'outbox_id' => 41, 'queued_at' => '2026-10-19T09:01:12+05:00', 'reason' => 'created', 'delivery_count' => 1,
+            'crm_id' => 'c7a1e2d3-4b5c-4d6e-8f70-81a2b3c4d5e6', 'external_id' => null, 'external_version' => null, 'legal_type' => 'legal_entity',
+            'name' => 'Alfa Trade', 'full_name' => 'Alfa Trade MChJ', 'tax_id' => '301234567', 'country' => 'UZ', 'city' => 'Tashkent', 'address' => 'Amir Temur 1', 'postal_code' => '100000',
+            'phone' => '+998901234567', 'email' => 'info@alfa.uz',
+            'contacts' => [['crm_id' => 'd8b2f3e4-5c6d-4e7f-9081-92b3c4d5e6f7', 'external_id' => null, 'first_name' => 'Ali', 'last_name' => 'Valiyev', 'position' => 'Director', 'phone' => '+998901112233', 'email' => 'ali@alfa.uz', 'is_primary' => true, 'is_deleted' => false]],
+        ]], 'next_cursor' => '41', 'has_more' => false, 'server_time' => '2026-10-19T09:05:00+05:00', 'request_id' => '3f2b8c1e-6a4d-4e0f-9b7a-2c5d8e1f4a6b'];
+    }
+
+    /** @return array<string, mixed> */
+    protected function exampleCustomerAcks(): array
+    {
+        return ['acks' => [
+            ['crm_id' => 'c7a1e2d3-4b5c-4d6e-8f70-81a2b3c4d5e6', 'outbox_id' => 41, 'status' => 'synced', 'external_id' => 'e9c3a4b5-6d7e-4f80-a192-a3c4d5e6f708', 'external_code' => '00-000123', 'contacts' => [['crm_id' => 'd8b2f3e4-5c6d-4e7f-9081-92b3c4d5e6f7', 'external_id' => 'f0d4b5c6-7e8f-4091-b2a3-b4d5e6f70819']]],
+            ['crm_id' => 'a1b2c3d4-e5f6-4071-8293-a4b5c6d7e8f9', 'outbox_id' => 42, 'status' => 'failed', 'error' => ['code' => 'tax_id_taken', 'message' => 'A counterparty with this INN already exists in 1C', 'fields' => ['tax_id']]],
+        ]];
+    }
+
+    /** @return array<string, mixed> */
+    protected function exampleCustomersPush(): array
+    {
+        return ['batch_id' => '8a7b6c5d-4e3f-4a2b-9c1d-0e9f8a7b6c5d', 'sent_at' => '2026-10-19T09:30:00+05:00', 'customers' => [[
+            'id' => 'e9c3a4b5-6d7e-4f80-a192-a3c4d5e6f708', 'code' => '00-000123', 'legal_type' => 'legal_entity', 'name' => 'Alfa Trade', 'full_name' => 'Alfa Trade MChJ',
+            'tax_id' => '301234567', 'country' => 'UZ', 'city' => 'Tashkent', 'address' => 'Amir Temur 1', 'phone' => '+998901234567', 'email' => 'info@alfa.uz',
+            'manager' => ['email' => 'sales@company.uz'], 'is_deleted' => false, 'updated_at' => '2026-10-19T09:20:00+05:00',
+            'contacts' => [['id' => 'f0d4b5c6-7e8f-4091-b2a3-b4d5e6f70819', 'first_name' => 'Ali', 'last_name' => 'Valiyev', 'position' => 'Director', 'phone' => '+998901112233', 'email' => 'ali@alfa.uz', 'is_deleted' => false]],
+        ]]];
+    }
+
+    /** @return array<string, mixed> */
+    protected function exampleOutboxPage(): array
+    {
+        return ['data' => [[
+            'sequence' => 1201, 'event_id' => 'b1c2d3e4-f5a6-4b7c-8d9e-0f1a2b3c4d5e', 'event_type' => 'delivery.posted', 'occurred_at' => '2026-10-19T11:02:00+05:00',
+            'aggregate' => ['type' => 'delivery', 'crm_id' => 'c2d3e4f5-a6b7-4c8d-9e0f-1a2b3c4d5e6f', 'version' => 1],
+            'payload' => [
+                'number' => 'DN-2026-00042', 'date' => '2026-10-19',
+                'order' => ['crm_id' => 'd3e4f5a6-b7c8-4d9e-8f01-2b3c4d5e6f70', 'number' => 'OR-2026-00031', 'external_id' => 'e4f5a6b7-c8d9-4e0f-9102-3c4d5e6f7081'],
+                'customer' => ['crm_id' => 'c7a1e2d3-4b5c-4d6e-8f70-81a2b3c4d5e6', 'external_id' => 'e9c3a4b5-6d7e-4f80-a192-a3c4d5e6f708'],
+                'warehouse_id' => '3c4d5e6f-0000-4000-8000-000000000001', 'currency' => 'UZS',
+                'lines' => [[
+                    'crm_order_line_id' => '311', 'item_id' => '6b1c2d3e-4f50-4a6b-8c7d-9e0f1a2b3c4d', 'accountant_code' => '2.01.003', 'class_code' => '08471300001000000', 'package_code' => '1501467',
+                    'quantity' => '2.000', 'unit_price' => '2950000.00', 'net' => '5267857.14', 'vat' => '632142.86', 'total' => '5900000.00', 'serials' => ['HE408A1B2C3', 'HE408A1B2C4'],
+                ]],
+            ],
+        ]], 'next_cursor' => '1201', 'has_more' => false, 'server_time' => '2026-10-19T11:05:00+05:00', 'request_id' => '3f2b8c1e-6a4d-4e0f-9b7a-2c5d8e1f4a6b'];
+    }
+
+    /** @return array<string, mixed> */
+    protected function exampleOutboxAcks(): array
+    {
+        return ['acks' => [
+            ['event_id' => 'b1c2d3e4-f5a6-4b7c-8d9e-0f1a2b3c4d5e', 'result' => 'applied', 'onec_guid' => 'f5a6b7c8-d9e0-4f10-a213-4d5e6f708192', 'onec_number' => 'ЦБ-00000881', 'posting_status' => 'posted', 'updated_at' => '2026-10-19T11:06:00+05:00'],
+            ['event_id' => 'a0b1c2d3-e4f5-4a6b-9c7d-8e9f0a1b2c3d', 'result' => 'rejected', 'errors' => [['code' => 'item_not_found', 'message' => 'Номенклатура не найдена']]],
+        ]];
+    }
+
+    /** @return array<string, mixed> */
+    protected function exampleGoodsReceiptsPush(): array
+    {
+        return ['batch_id' => '6e5d4c3b-2a19-4087-9f6e-5d4c3b2a1908', 'sent_at' => '2026-10-19T10:00:00+05:00', 'receipts' => [[
+            'id' => 'b7c8d9e0-f1a2-4132-c435-6f7081920a1b', 'number' => 'ПТ-000318', 'date' => '2026-10-19', 'updated_at' => '2026-10-19T09:58:00+05:00',
+            'warehouse_id' => '3c4d5e6f-0000-4000-8000-000000000001',
+            'supplier' => ['tax_id' => '305112233', 'name' => 'Net Distribution', 'full_name' => 'Net Distribution MChJ', 'country' => 'UZ'],
+            'lines' => [
+                ['line_id' => 'c8d9e0f1-a2b3-4243-d546-708192a3b4c5', 'item' => ['id' => '6b1c2d3e-4f50-4a6b-8c7d-9e0f1a2b3c4d'], 'expected_qty' => '10'],
+                ['line_id' => 'd9e0f1a2-b3c4-4354-e657-8192a3b4c5d6', 'item' => ['id' => '7c2d3e4f-5061-4b7c-9d8e-0f1a2b3c4d5e', 'code' => '00-00004410', 'name' => 'Patch cord Cat6 1 m', 'unit_id' => '1a2b3c4d-0000-4000-8000-000000000796'], 'expected_qty' => '200'],
+            ],
+            'is_deleted' => false,
+        ]]];
+    }
+
+    /** @return array<string, mixed> */
+    protected function exampleGoodsReceiptsResult(): array
+    {
+        return ['batch_id' => '6e5d4c3b-2a19-4087-9f6e-5d4c3b2a1908', 'results' => [[
+            'index' => 0, 'id' => 'b7c8d9e0-f1a2-4132-c435-6f7081920a1b', 'crm_id' => 'e0f1a2b3-c4d5-4465-f768-92a3b4c5d6e7', 'number' => 'GR-2026-00057', 'version' => 1,
+            'result' => 'created', 'created' => ['partner' => false, 'items' => ['00-00004410']],
+        ]], 'request_id' => '3f2b8c1e-6a4d-4e0f-9b7a-2c5d8e1f4a6b'];
+    }
+
+    /** @return array<string, mixed> */
+    protected function examplePaymentsPush(): array
+    {
+        return ['batch_id' => '7f6e5d4c-3b2a-4190-8f7e-6d5c4b3a2918', 'sent_at' => '2026-10-19T16:00:00+05:00', 'payments' => [[
+            'id' => 'a6b7c8d9-e0f1-4021-b324-5e6f708192a3', 'number' => '000000512', 'posted' => true, 'direction' => 'incoming', 'kind' => 'receipt', 'method' => 'bank_transfer',
+            'customer_id' => 'e9c3a4b5-6d7e-4f80-a192-a3c4d5e6f708', 'amount' => '5900000.00', 'currency' => 'UZS', 'paid_on' => '2026-10-19',
+            'payer_name' => 'Alfa Trade MChJ', 'payer_tax_id' => '301234567', 'reference_number' => 'PP-1182', 'purpose' => 'Payment for OR-2026-00031',
+            'is_deleted' => false, 'updated_at' => '2026-10-19T15:58:00+05:00',
+            'allocations' => [['order_crm_id' => 'd3e4f5a6-b7c8-4d9e-8f01-2b3c4d5e6f70', 'amount' => '5900000.00']],
+        ]]];
+    }
+}

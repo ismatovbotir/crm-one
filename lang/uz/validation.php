@@ -1,0 +1,196 @@
+<?php
+
+return [
+
+    /*
+    |--------------------------------------------------------------------------
+    | Validation Language Lines
+    |--------------------------------------------------------------------------
+    */
+
+    'accepted' => '«:attribute» qabul qilinishi kerak.',
+    'accepted_if' => ':other :value bo‘lganda «:attribute» qabul qilinishi kerak.',
+    'active_url' => '«:attribute» to‘g‘ri URL bo‘lishi kerak.',
+    'after' => '«:attribute» :date dan keyingi sana bo‘lishi kerak.',
+    'after_or_equal' => '«:attribute» :date yoki undan keyingi sana bo‘lishi kerak.',
+    'alpha' => '«:attribute» faqat harflardan iborat bo‘lishi kerak.',
+    'alpha_dash' => '«:attribute» faqat harflar, raqamlar, chiziqcha va pastki chiziqdan iborat bo‘lishi kerak.',
+    'alpha_num' => '«:attribute» faqat harflar va raqamlardan iborat bo‘lishi kerak.',
+    'any_of' => '«:attribute» noto‘g‘ri.',
+    'array' => '«:attribute» massiv bo‘lishi kerak.',
+    'array_keys' => '«:attribute» faqat quyidagi kalitlarni o‘z ichiga olishi mumkin: :values.',
+    'ascii' => '«:attribute» faqat bir baytli harf, raqam va belgilardan iborat bo‘lishi kerak.',
+    'base64' => '«:attribute» to‘g‘ri Base64 satri bo‘lishi kerak.',
+    'before' => '«:attribute» :date dan oldingi sana bo‘lishi kerak.',
+    'before_or_equal' => '«:attribute» :date yoki undan oldingi sana bo‘lishi kerak.',
+    'between' => [
+        'array' => '«:attribute» :min tadan :max tagacha elementdan iborat bo‘lishi kerak.',
+        'file' => '«:attribute» hajmi :min dan :max KB gacha bo‘lishi kerak.',
+        'numeric' => '«:attribute» qiymati :min dan :max gacha bo‘lishi kerak.',
+        'string' => '«:attribute» :min dan :max tagacha belgidan iborat bo‘lishi kerak.',
+    ],
+    'boolean' => '«:attribute» «ha» yoki «yo‘q» bo‘lishi kerak.',
+    'can' => '«:attribute» ruxsat etilmagan qiymatga ega.',
+    'confirmed' => '«:attribute» tasdig‘i mos kelmadi.',
+    'contains' => '«:attribute» majburiy qiymatni o‘z ichiga olmagan.',
+    'current_password' => 'Parol noto‘g‘ri.',
+    'date' => '«:attribute» to‘g‘ri sana bo‘lishi kerak.',
+    'date_equals' => '«:attribute» :date ga teng sana bo‘lishi kerak.',
+    'date_format' => '«:attribute» :format formatiga mos kelishi kerak.',
+    'decimal' => '«:attribute» verguldan keyin :decimal ta raqamga ega bo‘lishi kerak.',
+    'declined' => '«:attribute» rad etilishi kerak.',
+    'declined_if' => ':other :value bo‘lganda «:attribute» rad etilishi kerak.',
+    'different' => '«:attribute» va «:other» har xil bo‘lishi kerak.',
+    'digits' => '«:attribute» :digits ta raqamdan iborat bo‘lishi kerak.',
+    'digits_between' => '«:attribute» :min tadan :max tagacha raqamdan iborat bo‘lishi kerak.',
+    'dimensions' => '«:attribute» rasmining o‘lchamlari noto‘g‘ri.',
+    'distinct' => '«:attribute» takrorlanuvchi qiymatga ega.',
+    'doesnt_contain' => '«:attribute» quyidagilarni o‘z ichiga olmasligi kerak: :values.',
+    'doesnt_end_with' => '«:attribute» quyidagilardan biri bilan tugamasligi kerak: :values.',
+    'doesnt_start_with' => '«:attribute» quyidagilardan biri bilan boshlanmasligi kerak: :values.',
+    'email' => '«:attribute» to‘g‘ri elektron pochta manzili bo‘lishi kerak.',
+    'encoding' => '«:attribute» :encoding kodlashida bo‘lishi kerak.',
+    'ends_with' => '«:attribute» quyidagilardan biri bilan tugashi kerak: :values.',
+    'enum' => 'Tanlangan «:attribute» qiymati noto‘g‘ri.',
+    'exists' => 'Tanlangan «:attribute» qiymati noto‘g‘ri.',
+    'extensions' => '«:attribute» quyidagi kengaytmalardan biriga ega bo‘lishi kerak: :values.',
+    'file' => '«:attribute» fayl bo‘lishi kerak.',
+    'filled' => '«:attribute» to‘ldirilishi kerak.',
+    'gt' => [
+        'array' => '«:attribute» :value tadan ko‘p elementga ega bo‘lishi kerak.',
+        'file' => '«:attribute» hajmi :value KB dan katta bo‘lishi kerak.',
+        'numeric' => '«:attribute» qiymati :value dan katta bo‘lishi kerak.',
+        'string' => '«:attribute» :value tadan ko‘p belgidan iborat bo‘lishi kerak.',
+    ],
+    'gte' => [
+        'array' => '«:attribute» kamida :value ta elementga ega bo‘lishi kerak.',
+        'file' => '«:attribute» hajmi kamida :value KB bo‘lishi kerak.',
+        'numeric' => '«:attribute» qiymati kamida :value bo‘lishi kerak.',
+        'string' => '«:attribute» kamida :value ta belgidan iborat bo‘lishi kerak.',
+    ],
+    'hex_color' => '«:attribute» to‘g‘ri HEX rang bo‘lishi kerak.',
+    'image' => '«:attribute» rasm bo‘lishi kerak.',
+    'in' => 'Tanlangan «:attribute» qiymati noto‘g‘ri.',
+    'in_array' => '«:attribute» qiymati :other ichida mavjud bo‘lishi kerak.',
+    'in_array_keys' => '«:attribute» quyidagi kalitlardan kamida bittasini o‘z ichiga olishi kerak: :values.',
+    'integer' => '«:attribute» butun son bo‘lishi kerak.',
+    'ip' => '«:attribute» to‘g‘ri IP manzil bo‘lishi kerak.',
+    'ipv4' => '«:attribute» to‘g‘ri IPv4 manzil bo‘lishi kerak.',
+    'ipv6' => '«:attribute» to‘g‘ri IPv6 manzil bo‘lishi kerak.',
+    'json' => '«:attribute» to‘g‘ri JSON satri bo‘lishi kerak.',
+    'list' => '«:attribute» ro‘yxat bo‘lishi kerak.',
+    'lowercase' => '«:attribute» kichik harflarda bo‘lishi kerak.',
+    'lt' => [
+        'array' => '«:attribute» :value tadan kam elementga ega bo‘lishi kerak.',
+        'file' => '«:attribute» hajmi :value KB dan kichik bo‘lishi kerak.',
+        'numeric' => '«:attribute» qiymati :value dan kichik bo‘lishi kerak.',
+        'string' => '«:attribute» :value tadan kam belgidan iborat bo‘lishi kerak.',
+    ],
+    'lte' => [
+        'array' => '«:attribute» ko‘pi bilan :value ta elementga ega bo‘lishi kerak.',
+        'file' => '«:attribute» hajmi ko‘pi bilan :value KB bo‘lishi kerak.',
+        'numeric' => '«:attribute» qiymati ko‘pi bilan :value bo‘lishi kerak.',
+        'string' => '«:attribute» ko‘pi bilan :value ta belgidan iborat bo‘lishi kerak.',
+    ],
+    'mac_address' => '«:attribute» to‘g‘ri MAC manzil bo‘lishi kerak.',
+    'max' => [
+        'array' => '«:attribute» ko‘pi bilan :max ta elementga ega bo‘lishi kerak.',
+        'file' => '«:attribute» hajmi :max KB dan oshmasligi kerak.',
+        'numeric' => '«:attribute» qiymati :max dan oshmasligi kerak.',
+        'string' => '«:attribute» ko‘pi bilan :max ta belgidan iborat bo‘lishi kerak.',
+    ],
+    'max_digits' => '«:attribute» ko‘pi bilan :max ta raqamdan iborat bo‘lishi kerak.',
+    'mimes' => '«:attribute» quyidagi turdagi fayl bo‘lishi kerak: :values.',
+    'mimetypes' => '«:attribute» quyidagi turdagi fayl bo‘lishi kerak: :values.',
+    'min' => [
+        'array' => '«:attribute» kamida :min ta elementga ega bo‘lishi kerak.',
+        'file' => '«:attribute» hajmi kamida :min KB bo‘lishi kerak.',
+        'numeric' => '«:attribute» qiymati kamida :min bo‘lishi kerak.',
+        'string' => '«:attribute» kamida :min ta belgidan iborat bo‘lishi kerak.',
+    ],
+    'min_digits' => '«:attribute» kamida :min ta raqamdan iborat bo‘lishi kerak.',
+    'missing' => '«:attribute» bo‘lmasligi kerak.',
+    'missing_if' => ':other :value bo‘lganda «:attribute» bo‘lmasligi kerak.',
+    'missing_unless' => ':other :value bo‘lmasa, «:attribute» bo‘lmasligi kerak.',
+    'missing_with' => ':values ko‘rsatilganda «:attribute» bo‘lmasligi kerak.',
+    'missing_with_all' => ':values ko‘rsatilganda «:attribute» bo‘lmasligi kerak.',
+    'multiple_of' => '«:attribute» qiymati :value ga karrali bo‘lishi kerak.',
+    'not_in' => 'Tanlangan «:attribute» qiymati noto‘g‘ri.',
+    'not_regex' => '«:attribute» formati noto‘g‘ri.',
+    'numeric' => '«:attribute» son bo‘lishi kerak.',
+    'password' => [
+        'letters' => '«:attribute» kamida bitta harfni o‘z ichiga olishi kerak.',
+        'mixed' => '«:attribute» kamida bitta katta va bitta kichik harfni o‘z ichiga olishi kerak.',
+        'numbers' => '«:attribute» kamida bitta raqamni o‘z ichiga olishi kerak.',
+        'symbols' => '«:attribute» kamida bitta maxsus belgini o‘z ichiga olishi kerak.',
+        'uncompromised' => 'Kiritilgan «:attribute» ma’lumotlar sizib chiqishida uchragan. Boshqa qiymat tanlang.',
+    ],
+    'present' => '«:attribute» mavjud bo‘lishi kerak.',
+    'present_if' => ':other :value bo‘lganda «:attribute» mavjud bo‘lishi kerak.',
+    'present_unless' => ':other :value bo‘lmasa, «:attribute» mavjud bo‘lishi kerak.',
+    'present_with' => ':values ko‘rsatilganda «:attribute» mavjud bo‘lishi kerak.',
+    'present_with_all' => ':values ko‘rsatilganda «:attribute» mavjud bo‘lishi kerak.',
+    'prohibited' => '«:attribute» taqiqlangan.',
+    'prohibited_if' => ':other :value bo‘lganda «:attribute» taqiqlangan.',
+    'prohibited_if_accepted' => ':other qabul qilinganda «:attribute» taqiqlangan.',
+    'prohibited_if_declined' => ':other rad etilganda «:attribute» taqiqlangan.',
+    'prohibited_unless' => ':other :values ichida bo‘lmasa, «:attribute» taqiqlangan.',
+    'prohibits' => '«:attribute» bo‘lganda «:other» ko‘rsatilishi taqiqlangan.',
+    'regex' => '«:attribute» formati noto‘g‘ri.',
+    'required' => '«:attribute» to‘ldirilishi shart.',
+    'required_array_keys' => '«:attribute» quyidagilar uchun qiymatlarni o‘z ichiga olishi kerak: :values.',
+    'required_if' => ':other :value bo‘lganda «:attribute» to‘ldirilishi shart.',
+    'required_if_accepted' => ':other qabul qilinganda «:attribute» to‘ldirilishi shart.',
+    'required_if_declined' => ':other rad etilganda «:attribute» to‘ldirilishi shart.',
+    'required_unless' => ':other :values ichida bo‘lmasa, «:attribute» to‘ldirilishi shart.',
+    'required_with' => ':values ko‘rsatilganda «:attribute» to‘ldirilishi shart.',
+    'required_with_all' => ':values ko‘rsatilganda «:attribute» to‘ldirilishi shart.',
+    'required_without' => ':values ko‘rsatilmaganda «:attribute» to‘ldirilishi shart.',
+    'required_without_all' => ':values dan hech biri ko‘rsatilmaganda «:attribute» to‘ldirilishi shart.',
+    'same' => '«:attribute» va «:other» mos kelishi kerak.',
+    'size' => [
+        'array' => '«:attribute» :size ta elementdan iborat bo‘lishi kerak.',
+        'file' => '«:attribute» hajmi :size KB bo‘lishi kerak.',
+        'numeric' => '«:attribute» qiymati :size bo‘lishi kerak.',
+        'string' => '«:attribute» :size ta belgidan iborat bo‘lishi kerak.',
+    ],
+    'starts_with' => '«:attribute» quyidagilardan biri bilan boshlanishi kerak: :values.',
+    'string' => '«:attribute» satr bo‘lishi kerak.',
+    'timezone' => '«:attribute» to‘g‘ri vaqt mintaqasi bo‘lishi kerak.',
+    'unique' => 'Bunday «:attribute» allaqachon mavjud.',
+    'uploaded' => '«:attribute» yuklanmadi.',
+    'uppercase' => '«:attribute» katta harflarda bo‘lishi kerak.',
+    'url' => '«:attribute» to‘g‘ri URL bo‘lishi kerak.',
+    'ulid' => '«:attribute» to‘g‘ri ULID bo‘lishi kerak.',
+    'uuid' => '«:attribute» to‘g‘ri UUID bo‘lishi kerak.',
+
+    /*
+    |--------------------------------------------------------------------------
+    | Custom Validation Language Lines
+    |--------------------------------------------------------------------------
+    */
+
+    'custom' => [
+        'attribute-name' => [
+            'rule-name' => 'custom-message',
+        ],
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Custom Validation Attributes
+    |--------------------------------------------------------------------------
+    */
+
+    'attributes' => [
+        'name' => 'Ism',
+        'email' => 'Email',
+        'password' => 'Parol',
+        'password_confirmation' => 'Parol tasdig‘i',
+        'role' => 'Rol',
+        'logo' => 'Logotip',
+        'locale' => 'Til',
+        'token' => 'Token',
+    ],
+
+];

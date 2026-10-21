@@ -1,0 +1,5 @@
+/* CRM header above Swagger UI (static file: CSP style-src 'self'). */
+body { margin: 0; font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+.crm-api-docs-header { display: flex; flex-wrap: wrap; gap: 1rem; align-items: center; padding: .75rem 1.25rem; background: #1f2937; color: #f9fafb; font-size: .875rem; }
+.crm-api-docs-header a { color: #f9fafb; }
+.crm-api-docs-header span { opacity: .8; margin-right: auto; }

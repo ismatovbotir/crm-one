@@ -1,0 +1,145 @@
+<?php
+
+return [
+
+    'appearance' => [
+        'title' => 'Appearance',
+        'intro' => 'Adjust the application color scheme. Changes apply to every user (including the login page) as soon as they are saved.',
+
+        'logo' => 'Logo',
+        'logo_help' => 'Shown in the sidebar, top bar, login page, printed documents and as the favicon. Square images work best. PNG, JPG or WebP, max 2 MB.',
+        'logo_current_custom' => 'Current (custom)',
+        'logo_current_default' => 'Current (default)',
+        'logo_preview_alt' => 'New logo preview',
+        'logo_new' => 'New',
+        'logo_file' => 'Logo file',
+        'upload_logo' => 'Upload logo',
+        'reset_logo' => 'Reset to default RSG logo',
+        'reset_logo_confirm' => 'Restore the default RSG logo?',
+        'logo_updated' => 'Logo updated.',
+        'logo_reset_done' => 'Logo reset to the default RSG logo.',
+        'logo_not_image' => 'The file is not a valid PNG, JPG or WebP image (max 4096 x 4096 px).',
+
+        'presets' => 'Presets',
+        'presets_help' => 'A preset only fills the form below. Click Save to apply it.',
+        'color_picker' => ':color picker',
+        'default_hex' => 'Default: :hex',
+        'hex_invalid' => 'Use a 6-digit hex color, e.g. #e51932.',
+
+        'not_saved_contrast' => 'Not saved: some colors are not readable enough (WCAG AA).',
+        'contrast_error' => ':label is :ratio:1, needs at least :minimum:1.',
+        'reset_colors' => 'Reset to default',
+        'reset_colors_confirm' => 'Reset all colors to the default Red / Silver / White theme?',
+        'saved' => 'Appearance saved.',
+        'reset_done' => 'Appearance reset to the default colors.',
+
+        'contrast' => 'Contrast',
+        'contrast_help' => 'Saving is blocked while any check fails. Text needs 4.5:1, UI shapes 3:1.',
+        'pass' => 'Pass',
+        'fail' => 'Fail',
+
+        'preview' => 'Preview',
+        'preview_offers_hover' => 'Offers (hover)',
+        'preview_offer' => 'Offer Q-2026-014',
+        'preview_sent' => 'Sent',
+        'preview_secondary_text' => 'Secondary text on the page surface.',
+        'preview_link' => 'A link',
+        'preview_primary' => 'Primary',
+        'preview_hover' => 'Hover',
+        'preview_secondary' => 'Secondary',
+        'preview_input' => 'Input field',
+    ],
+
+    'colors' => [
+        'primary' => [
+            'label' => 'Primary',
+            'description' => 'Primary buttons, active navigation, badges, focus rings.',
+        ],
+        'primary_hover' => [
+            'label' => 'Primary hover / dark',
+            'description' => 'Button hover, links and error messages.',
+        ],
+        'sidebar' => [
+            'label' => 'Sidebar / panel surface',
+            'description' => 'Sidebar, table headers and login side panel background.',
+        ],
+        'sidebar_text' => [
+            'label' => 'Sidebar text',
+            'description' => 'Navigation text on the sidebar. Labels and hover shades are derived from it.',
+        ],
+        'surface' => [
+            'label' => 'Page surface',
+            'description' => 'Cards, top bar, inputs. The page background is derived from it.',
+        ],
+        'text' => [
+            'label' => 'Text / headings',
+            'description' => 'Body text and headings. Secondary text is derived from it.',
+        ],
+        'border' => [
+            'label' => 'Borders',
+            'description' => 'Card, table and divider borders.',
+        ],
+    ],
+
+    'presets' => [
+        'default' => 'Red / Silver / White (default)',
+        'dark_red' => 'Dark Red',
+        'mono' => 'Mono',
+        'navy' => 'Navy',
+    ],
+
+    'contrast' => [
+        'white_on_primary' => 'White text on primary',
+        'white_on_primary_hover' => 'White text on primary hover',
+        'links_on_surface' => 'Links / errors (primary hover) on surface',
+        'text_on_surface' => 'Text on surface',
+        'sidebar_text_on_sidebar' => 'Sidebar text on sidebar',
+        'nav_pill_on_sidebar' => 'Active nav pill (primary) on sidebar, non-text',
+    ],
+
+    'company' => [
+        'title' => 'Company profile',
+        'intro' => 'Printed on offers, orders and agreements. Legal name, address and city are kept per document language.',
+        'profile' => 'Legal profile',
+        'saved' => 'Company profile saved.',
+        'tax_id_invalid' => 'The tax ID (INN) has 9 digits.',
+        'mfo_invalid' => 'The bank code (MFO) has 5 digits.',
+        'account_invalid' => 'The account number has 20 digits.',
+        'bank_accounts' => 'Our bank accounts',
+        'add_bank' => 'Add account',
+        'bank_saved' => 'Bank account saved.',
+        'no_banks' => 'No bank accounts yet: agreements cannot be sent without one.',
+        'signatories' => 'Signatories',
+        'signatories_help' => 'Who signs agreements for the company: the director by default; others with a power of attorney and its validity date.',
+        'add_signatory' => 'Add signatory',
+        'signatory_saved' => 'Signatory saved.',
+        'no_signatories' => 'No signatories yet: agreements cannot be sent without one.',
+        'basis_hint' => 'Charter, or power of attorney No. and date',
+        'valid_until' => 'valid until :date',
+        'default' => 'Default',
+        'activate' => 'Activate',
+        'deactivate' => 'Deactivate',
+        'fields' => [
+            'legal_name' => 'Legal name',
+            'address' => 'Legal address',
+            'city' => 'City (place of signing)',
+            'tax_id' => 'Tax ID (INN)',
+            'vat_code' => 'VAT registration code',
+            'oked' => 'OKED',
+            'phone' => 'Phone',
+            'email' => 'E-mail',
+            'director' => 'Director',
+            'chief_accountant' => 'Chief accountant',
+            'bank_name' => 'Bank',
+            'mfo' => 'Bank code (MFO)',
+            'account_number' => 'Account number',
+            'currency' => 'Currency',
+            'is_default' => 'Default',
+            'full_name' => 'Full name',
+            'position' => 'Position',
+            'basis' => 'Acting on the basis of',
+            'valid_until' => 'Authority valid until',
+        ],
+    ],
+
+];
