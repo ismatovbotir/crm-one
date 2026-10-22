@@ -89,35 +89,52 @@ class LabelPrintingTest extends TestCase
         $this->assertSame(20, $clean[1]['small_scale']);
     }
 
-    public function test_price_is_split_into_groups_and_decimals(): void
+    public function test_price_has_no_coins_and_is_split_into_thousand_groups(): void
     {
-        $parts = LabelData::priceParts(Money::of(125000050, 'UZS'));
-
-        $this->assertSame(['1', '250', '000'], $parts['groups']);
-        $this->assertSame('50', $parts['decimals']);
-        $this->assertSame('UZS', $parts['currency']);
+        $this->assertSame(['1', '250', '001'], LabelData::priceParts(Money::of(125000050, 'UZS'))['groups']);
+        $this->assertSame(['1', '250', '000'], LabelData::priceParts(Money::of(125000049, 'UZS'))['groups']);
+        $this->assertSame(['999'], LabelData::priceParts(Money::of(99900, 'UZS'))['groups']);
+        $this->assertSame(['0'], LabelData::priceParts(Money::of(0, 'UZS'))['groups']);
+        $this->assertSame('UZS', LabelData::priceParts(Money::of(100, 'UZS'))['currency']);
+        $this->assertArrayNotHasKey('decimals', LabelData::priceParts(Money::of(100, 'UZS')));
         $this->assertNull(LabelData::priceParts(null));
     }
 
-    public function test_price_element_sets_parts_smaller_and_positions_them(): void
+    public function test_only_the_last_three_digits_are_smaller_and_positioned(): void
     {
-        $element = LabelLayout::sanitize([['type' => 'price', 'w' => 40, 'h' => 12, 'small_decimals' => true, 'small_thousands' => true, 'small_currency' => false, 'small_scale' => 50, 'small_valign' => 'bottom']], 58, 40)[0];
-        $html = view('components.label-element', ['element' => $element, 'values' => LabelData::sample(), 'logo' => null])->render();
+        $values = ['fields' => LabelData::sample()['fields'], 'price' => LabelData::priceParts(Money::of(125000000, 'UZS'))];
+        $element = LabelLayout::sanitize([['type' => 'price', 'w' => 40, 'h' => 12, 'small_last_digits' => true, 'small_currency' => false, 'small_scale' => 50, 'small_valign' => 'bottom']], 58, 40)[0];
+        $html = view('components.label-element', ['element' => $element, 'values' => $values, 'logo' => null])->render();
 
-        $this->assertStringContainsString('font-size:50%;vertical-align:text-bottom', $html);
-        $this->assertSame(2, substr_count($html, 'font-size:50%'));
-        $this->assertStringContainsString("</span>\u{00A0}UZS</span>", $html);
+        $this->assertStringContainsString("1\u{00A0}250\u{00A0}<span style=\"font-size:50%;vertical-align:text-bottom;\">000</span>\u{00A0}UZS</span>", $html);
+        $this->assertSame(1, substr_count($html, 'font-size:50%'));
+        $this->assertStringNotContainsString(',', strip_tags($html), 'No coins are printed.');
     }
 
-    public function test_zero_decimals_are_hidden_unless_always_shown(): void
+    public function test_small_currency_and_top_baseline_positions(): void
     {
-        $values = ['fields' => LabelData::sample()['fields'], 'price' => LabelData::priceParts(Money::of(10000, 'UZS'))];
-        $hidden = LabelLayout::sanitize([['type' => 'price', 'w' => 30, 'h' => 10, 'show_currency' => false]], 58, 40)[0];
-        $shown = ['always_decimals' => true, 'small_decimals' => false] + $hidden;
-        $plain = fn (array $element): string => trim(strip_tags(view('components.label-element', ['element' => $element, 'values' => $values, 'logo' => null])->render()));
+        $values = ['fields' => LabelData::sample()['fields'], 'price' => LabelData::priceParts(Money::of(125000000, 'UZS'))];
 
-        $this->assertSame('100', $plain($hidden));
-        $this->assertSame('100,00', $plain($shown));
+        foreach (['top' => 'text-top', 'baseline' => 'baseline', 'bottom' => 'text-bottom'] as $position => $css) {
+            $element = LabelLayout::sanitize([['type' => 'price', 'w' => 40, 'h' => 12, 'small_last_digits' => true, 'small_currency' => true, 'small_valign' => $position]], 58, 40)[0];
+            $html = view('components.label-element', ['element' => $element, 'values' => $values, 'logo' => null])->render();
+
+            $this->assertSame(2, substr_count($html, 'vertical-align:'.$css), $position);
+        }
+    }
+
+    public function test_short_prices_and_switched_off_option_stay_plain(): void
+    {
+        $short = ['fields' => LabelData::sample()['fields'], 'price' => LabelData::priceParts(Money::of(45000, 'UZS'))];
+        $on = LabelLayout::sanitize([['type' => 'price', 'w' => 40, 'h' => 12, 'small_last_digits' => true, 'show_currency' => false]], 58, 40)[0];
+        $off = ['small_last_digits' => false] + $on;
+        $long = ['fields' => $short['fields'], 'price' => LabelData::priceParts(Money::of(125000000, 'UZS'))];
+
+        $render = fn (array $element, array $values): string => view('components.label-element', ['element' => $element, 'values' => $values, 'logo' => null])->render();
+
+        $this->assertStringNotContainsString('font-size:55%', $render($on, $short), 'A price under 1 000 has no group to shrink.');
+        $this->assertStringNotContainsString('font-size:55%', $render($off, $long));
+        $this->assertSame('450', trim(strip_tags($render($on, $short))));
     }
 
     public function test_admin_manages_templates_and_others_are_forbidden(): void

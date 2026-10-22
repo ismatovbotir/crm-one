@@ -27,7 +27,7 @@ final class LabelLayout
     public const MIN_SIZE_MM = 1.0;
 
     /**
-     * Stored layout for a new template: name, SKU, barcode and a price with small decimals.
+     * Stored layout for a new template: name, SKU, barcode and a price whose last three digits are smaller.
      *
      * @return list<array<string, mixed>>
      */
@@ -36,7 +36,7 @@ final class LabelLayout
         return self::sanitize([
             ['type' => 'text', 'field' => 'name', 'x' => 2, 'y' => 2, 'w' => $width - 4, 'h' => 9, 'font_size' => 9, 'bold' => true],
             ['type' => 'price', 'x' => 2, 'y' => 12, 'w' => $width - 4, 'h' => 12, 'font_size' => 20, 'bold' => true, 'align' => 'right', 'valign' => 'bottom',
-                'small_decimals' => true, 'small_thousands' => false, 'small_currency' => true, 'small_scale' => 55, 'small_valign' => 'top'],
+                'small_last_digits' => true, 'small_currency' => true, 'small_scale' => 55, 'small_valign' => 'top'],
             ['type' => 'barcode', 'field' => 'barcode', 'x' => 2, 'y' => 25, 'w' => $width - 4, 'h' => max(6, $height - 27), 'font_size' => 6, 'show_text' => true],
         ], $width, $height);
     }
@@ -88,11 +88,9 @@ final class LabelLayout
 
             if ($type === 'price') {
                 $element += [
-                    'small_decimals' => (bool) ($raw['small_decimals'] ?? true),
-                    'small_thousands' => (bool) ($raw['small_thousands'] ?? false),
+                    'small_last_digits' => (bool) ($raw['small_last_digits'] ?? true),
                     'small_currency' => (bool) ($raw['small_currency'] ?? true),
                     'show_currency' => (bool) ($raw['show_currency'] ?? true),
-                    'always_decimals' => (bool) ($raw['always_decimals'] ?? false),
                     'small_scale' => (int) self::clamp(self::number($raw['small_scale'] ?? 55), 20, 100),
                     'small_valign' => self::choice($raw['small_valign'] ?? null, self::SMALL_VALIGNS, 'top'),
                 ];

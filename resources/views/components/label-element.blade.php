@@ -2,7 +2,7 @@
 {{--
     One positioned element of a label template, in millimetres. Shared by the designer preview
     (re-rendered through Livewire when a property changes) and the print sheet, so both look alike.
-    Price: thousand groups / decimals / currency can be set smaller and aligned top, baseline or bottom.
+    Price: whole amount (no coins); the last three digits and the currency can be set smaller and aligned top, baseline or bottom.
 --}}
 @php
     $type = $element['type'];
@@ -38,19 +38,11 @@
         @if ($price !== null)
             @php
                 $groups = $price['groups'];
-                $showDecimals = $price['decimals'] !== null && (($element['always_decimals'] ?? false) || trim($price['decimals'], '0') !== '');
                 $nbsp = "\u{00A0}";
                 $part = fn (string $content, bool $small): string => $small ? '<span style="'.$smallStyle.'">'.e($content).'</span>' : e($content);
-                $html = e($groups[0]);
-
-                if (count($groups) > 1) {
-                    $html .= $part($nbsp.implode($nbsp, array_slice($groups, 1)), (bool) ($element['small_thousands'] ?? false));
-                }
-
-                if ($showDecimals) {
-                    $smallDecimals = (bool) ($element['small_decimals'] ?? false);
-                    $html .= $part(($smallDecimals ? '' : $price['separator']).$price['decimals'], $smallDecimals);
-                }
+                $last = array_pop($groups);
+                $html = $groups === [] ? '' : e(implode($nbsp, $groups).$nbsp);
+                $html .= $part($last, $groups !== [] && ($element['small_last_digits'] ?? false));
 
                 if ($element['show_currency'] ?? true) {
                     $html .= $part($nbsp.$price['currency'], (bool) ($element['small_currency'] ?? false));

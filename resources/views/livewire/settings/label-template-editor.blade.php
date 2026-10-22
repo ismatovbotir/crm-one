@@ -12,7 +12,7 @@
             ['label' => __('labels.fields.custom'), 'def' => ['type' => 'text', 'field' => 'custom', 'text' => __('labels.editor.custom_default'), 'w' => 30, 'h' => 5, 'font_size' => 8]],
         ],
         'special' => [
-            ['label' => __('labels.fields.price'), 'def' => ['type' => 'price', 'w' => 40, 'h' => 12, 'font_size' => 20, 'bold' => true, 'align' => 'right', 'valign' => 'bottom', 'small_decimals' => true, 'small_currency' => true, 'small_scale' => 55, 'small_valign' => 'top']],
+            ['label' => __('labels.fields.price'), 'def' => ['type' => 'price', 'w' => 40, 'h' => 12, 'font_size' => 20, 'bold' => true, 'align' => 'right', 'valign' => 'bottom', 'small_last_digits' => true, 'small_currency' => true, 'small_scale' => 55, 'small_valign' => 'top']],
             ['label' => __('labels.fields.barcode_bars'), 'def' => ['type' => 'barcode', 'field' => 'barcode', 'w' => 40, 'h' => 12, 'font_size' => 6, 'show_text' => true]],
             ['label' => __('labels.fields.logo'), 'def' => ['type' => 'image', 'w' => 12, 'h' => 12]],
             ['label' => __('labels.fields.line'), 'def' => ['type' => 'line', 'w' => 40, 'h' => 0.3]],
@@ -144,11 +144,9 @@
 
                     <fieldset data-show="price" class="space-y-2 rounded-md border border-line p-2">
                         <legend class="px-1 text-xs font-semibold text-muted">{{ __('labels.editor.price_format') }}</legend>
-                        <label class="flex items-center gap-2 text-sm"><input type="checkbox" data-prop="small_decimals"> {{ __('labels.editor.small_decimals') }}</label>
-                        <label class="flex items-center gap-2 text-sm"><input type="checkbox" data-prop="small_thousands"> {{ __('labels.editor.small_thousands') }}</label>
+                        <label class="flex items-center gap-2 text-sm"><input type="checkbox" data-prop="small_last_digits"> {{ __('labels.editor.small_last_digits') }}</label>
                         <label class="flex items-center gap-2 text-sm"><input type="checkbox" data-prop="show_currency"> {{ __('labels.editor.show_currency') }}</label>
                         <label class="flex items-center gap-2 text-sm"><input type="checkbox" data-prop="small_currency"> {{ __('labels.editor.small_currency') }}</label>
-                        <label class="flex items-center gap-2 text-sm"><input type="checkbox" data-prop="always_decimals"> {{ __('labels.editor.always_decimals') }}</label>
                         <div class="grid grid-cols-2 gap-2">
                             <div>
                                 <label for="lp-scale" class="text-xs text-muted">{{ __('labels.editor.small_scale') }} (%)</label>

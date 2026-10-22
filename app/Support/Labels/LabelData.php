@@ -2,16 +2,15 @@
 
 namespace App\Support\Labels;
 
-use App\Enums\Locale;
 use App\Models\Item;
 use App\Models\ItemSerial;
 use App\Support\Money;
 
 /**
- * Values printed on one label. "price" is split into parts so the template can set the
- * thousand groups, the decimals and the currency in a smaller font and position them.
+ * Values printed on one label. "price" is a whole amount (no coins, rounded half-up) split into its
+ * thousand groups, so the template can set the last three digits and the currency in a smaller font.
  *
- * @phpstan-type PriceParts array{groups: list<string>, decimals: string|null, currency: string, separator: string}
+ * @phpstan-type PriceParts array{groups: list<string>, currency: string}
  * @phpstan-type LabelValues array{fields: array<string, string>, price: PriceParts|null}
  */
 final class LabelData
@@ -79,15 +78,10 @@ final class LabelData
             return null;
         }
 
-        [$whole, $fraction] = array_pad(explode('.', $price->toMajor(), 2), 2, null);
-        $groups = str_split(strrev($whole), 3);
-        $groups = array_reverse(array_map('strrev', $groups));
+        $divisor = 10 ** Money::exponent($price->currency);
+        $whole = (string) intdiv($price->amount + intdiv($divisor, 2), $divisor);
+        $groups = array_reverse(array_map('strrev', str_split(strrev($whole), 3)));
 
-        return [
-            'groups' => $groups,
-            'decimals' => $fraction,
-            'currency' => $price->currency,
-            'separator' => Locale::current()->value === 'en' ? '.' : ',',
-        ];
+        return ['groups' => $groups, 'currency' => $price->currency];
     }
 }
