@@ -22,9 +22,8 @@ use Livewire\Attributes\Url;
 use Livewire\Component;
 
 /**
- * Item detail (read-only 1C data) with CRM-local fields, the single sale and purchase price, the
- * stock cost price (weighted average of the stock rows), stock per warehouse with cost, and the
- * change log (rev. 4).
+ * Item detail (read-only 1C data) with CRM-local fields, the single sale price, stock quantities
+ * per warehouse (no purchase price or cost is shown), and the change log.
  */
 #[Layout('layouts.app')]
 class Show extends Component
@@ -39,6 +38,9 @@ class Show extends Component
     public string $min_order_qty = '';
 
     public string $order_step = '';
+
+    /** CRM-local barcode printed on price tags (falls back to the SKU when empty). */
+    public string $barcode = '';
 
     /** Shared accounting codes and serial flag (Spec 02 BR-I.13a/b). */
     public string $accountant_code = '';
@@ -61,6 +63,7 @@ class Show extends Component
         $this->itemId = $item->id;
         $this->min_order_qty = $item->min_order_qty === null ? '' : rtrim(rtrim((string) $item->min_order_qty, '0'), '.');
         $this->order_step = $item->order_step === null ? '' : rtrim(rtrim((string) $item->order_step, '0'), '.');
+        $this->barcode = (string) $item->barcode;
         $this->accountant_code = (string) $item->accountant_code;
         $this->class_code = (string) $item->class_code;
         $this->package_code = (string) $item->package_code;
@@ -102,6 +105,7 @@ class Show extends Component
 
         $this->min_order_qty = Quantity::normalize($this->min_order_qty);
         $this->order_step = Quantity::normalize($this->order_step);
+        $this->barcode = trim($this->barcode);
         $precision = $item->unit->precision;
 
         $precisionRule = function (string $attribute, mixed $value, \Closure $fail) use ($precision): void {
@@ -112,6 +116,7 @@ class Show extends Component
 
         $validated = $this->validate([
             'min_order_qty' => ['nullable', 'string', 'max:20', $precisionRule],
+            'barcode' => ['nullable', 'string', 'max:64', 'regex:/^[ -~]+$/'],
             'order_step' => ['nullable', 'string', 'max:20', $precisionRule, function (string $attribute, mixed $value, \Closure $fail): void {
                 if (bccomp((string) $value, '0', Quantity::SCALE) <= 0) {
                     $fail(__('catalog.items.errors.step_positive'));
@@ -120,11 +125,13 @@ class Show extends Component
         ], [], [
             'min_order_qty' => __('catalog.items.fields.min_order_qty'),
             'order_step' => __('catalog.items.fields.order_step'),
+            'barcode' => __('catalog.items.fields.barcode'),
         ]);
 
         $item->update([
             'min_order_qty' => filled($validated['min_order_qty']) ? Quantity::toStorage($validated['min_order_qty']) : null,
             'order_step' => filled($validated['order_step']) ? Quantity::toStorage($validated['order_step']) : null,
+            'barcode' => filled($validated['barcode']) ? $validated['barcode'] : null,
         ]);
 
         unset($this->item);

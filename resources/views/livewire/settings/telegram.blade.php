@@ -13,6 +13,15 @@
             <input wire:model="username" id="tg-username" type="text" class="form-input font-mono">
             @error('username') <p class="form-error">{{ $message }}</p> @enderror
         </div>
+        <div class="sm:col-span-2" data-telegram-admin>
+            <label for="tg-admin" class="form-label">{{ __('telegram.settings.admin_chat_id') }}</label>
+            <div class="flex flex-wrap gap-2">
+                <input wire:model="adminChatId" id="tg-admin" type="text" inputmode="numeric" autocomplete="off" class="form-input max-w-xs font-mono" placeholder="123456789">
+                <button type="button" wire:click="testAdmin" class="btn btn-secondary" @disabled(! $tokenSet)>{{ __('telegram.settings.test_admin') }}</button>
+            </div>
+            <p class="mt-1 text-xs text-muted">{{ __('telegram.settings.admin_chat_help') }}</p>
+            @error('adminChatId') <p class="form-error">{{ $message }}</p> @enderror
+        </div>
         <div data-telegram-retention>
             <label for="tg-retention" class="form-label">{{ __('telegram.settings.retention_days') }}</label>
             <input wire:model="retentionDays" id="tg-retention" type="number" min="30" max="3650" class="form-input">

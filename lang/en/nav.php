@@ -38,6 +38,8 @@ return [
     'settings' => 'Settings',
     'settings_appearance' => 'Appearance',
     'settings_company' => 'Company profile',
+    'label_print' => 'Price tags',
+    'settings_label_templates' => 'Label templates',
     'settings_agreement_templates' => 'Agreement templates',
     'settings_integrations' => 'Integrations (1C)',
     'settings_api_docs' => 'API documentation',

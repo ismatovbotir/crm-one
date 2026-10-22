@@ -137,7 +137,7 @@ class TelegramLeadIntake
     public function handleGroup(array $message, bool $edited = false): string
     {
         $chats = app(TelegramChats::class);
-        $chat = $chats->observeChat((array) ($message['chat'] ?? []));
+        $chat = $chats->observeChat((array) ($message['chat'] ?? []), true, (array) ($message['from'] ?? []));
 
         if ($chat === null) {
             return 'ignored';
@@ -162,8 +162,8 @@ class TelegramLeadIntake
         $from = (array) ($message['from'] ?? []);
         $sender = $chats->observeContact($from);
 
-        if ($sender === null) {
-            return 'ignored'; // bots (including anonymous admins posting as the group) are ignored
+        if ($sender === null || $sender->is_bot) {
+            return 'ignored'; // bots (including anonymous admins posting as the group) are saved but ignored
         }
 
         $chats->observeMember($target, $sender, TelegramMemberRole::Member, 'message');

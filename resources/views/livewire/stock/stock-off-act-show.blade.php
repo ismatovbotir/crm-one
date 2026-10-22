@@ -1,5 +1,6 @@
 <div class="space-y-6">
     @php
+        $canSeeValue = auth()->user()->can('viewValue', \App\Models\StockOffAct::class);
         $act = $this->act;
         $editable = auth()->user()->can('update', $act);
         $dateFormat = \App\Enums\Locale::current()->dateFormat();
@@ -20,9 +21,11 @@
             <p class="mt-1 text-sm text-ink">{{ $act->warehouse?->name }}@if ($act->goodsReceipt) · <a href="{{ route('goods-receipts.show', $act->goodsReceipt) }}" wire:navigate class="link">{{ $act->goodsReceipt->number }}</a>@endif @if ($act->supplierPartner) · {{ $act->supplierPartner->name }}@endif</p>
             <p class="mt-1 text-xs text-muted" data-approval-level="{{ $act->approval_level }}">
                 {{ __('stock_off.approval_level.'.$act->approval_level) }}
-                @foreach ($act->totals ?? [] as $currency => $minor)
-                    · {{ \App\Support\Money::of((int) $minor, $currency)->format() }}
-                @endforeach
+                @can('viewValue', \App\Models\StockOffAct::class)
+                    @foreach ($act->totals ?? [] as $currency => $minor)
+                        · {{ \App\Support\Money::of((int) $minor, $currency)->format() }}
+                    @endforeach
+                @endcan
             </p>
             <nav aria-label="{{ __('stock_off.progress') }}" class="mt-3 flex flex-wrap items-center gap-2 text-sm" data-stock-off-stepper>
                 <ol class="flex flex-wrap items-center gap-2">
@@ -154,7 +157,7 @@
                     <section class="card space-y-3 p-5" wire:key="sol-{{ $line->id }}" data-stock-off-line="{{ $line->id }}">
                         <div class="flex flex-wrap items-start justify-between gap-2">
                             <p class="font-semibold text-ink">{{ $line->position }}. {{ $line->item?->name }} <span class="font-mono text-xs text-muted">{{ $line->item?->sku }}</span> @if ($line->is_serialized) <x-badge tone="outline">{{ __('orders.lines.serialized') }}</x-badge> @endif</p>
-                            <p class="text-sm text-ink">{{ __('stock_off.fields.quantity') }}: <span class="font-semibold">{{ \App\Support\Quantity::trimmed((string) $line->quantity) }}</span>@if ($line->value_minor !== null) · {{ \App\Support\Money::of($line->value_minor, (string) $line->currency)->format() }}@endif</p>
+                            <p class="text-sm text-ink">{{ __('stock_off.fields.quantity') }}: <span class="font-semibold">{{ \App\Support\Quantity::trimmed((string) $line->quantity) }}</span>@if ($line->value_minor !== null && $canSeeValue) · {{ \App\Support\Money::of($line->value_minor, (string) $line->currency)->format() }}@endif</p>
                         </div>
                         @if ($line->note) <p class="text-xs text-muted">{{ $line->note }}</p> @endif
                         @if ($line->is_serialized)

@@ -44,7 +44,7 @@ class InternalCommands
             return 'migrated';
         }
 
-        $chats->observeChat((array) ($message['chat'] ?? []));
+        $chats->observeChat((array) ($message['chat'] ?? []), true, (array) ($message['from'] ?? []));
         $command = $this->parse((string) ($message['text'] ?? ''));
 
         if ($command === null || (bool) data_get($message, 'from.is_bot', false)) {

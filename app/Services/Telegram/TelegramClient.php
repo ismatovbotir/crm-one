@@ -5,6 +5,7 @@ namespace App\Services\Telegram;
 use App\Models\Setting;
 use App\Services\Telegram\Exceptions\TelegramException;
 use Illuminate\Http\Client\ConnectionException;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Crypt;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
@@ -117,6 +118,7 @@ class TelegramClient
                 ->post(self::API.'/bot'.$token.'/'.$method, $payload);
         } catch (ConnectionException) {
             Log::warning('telegram.call', ['method' => $method, 'status' => 'connection_error']);
+            $this->reportToAdmin('connection_error', $method, $payload);
 
             throw new TelegramException('failed');
         }
@@ -129,7 +131,7 @@ class TelegramClient
 
         $description = mb_strtolower((string) $response->json('description'));
 
-        throw match (true) {
+        $exception = match (true) {
             // A group became a supergroup: Telegram tells the new id (Spec 03 section 23.4).
             $response->json('parameters.migrate_to_chat_id') !== null => new TelegramException('migrated', 0, (int) $response->json('parameters.migrate_to_chat_id')),
             $response->status() === 400 && str_contains($description, 'not enough rights') => new TelegramException('no_rights'),
@@ -140,6 +142,44 @@ class TelegramClient
             $response->status() === 401 => new TelegramException('unauthorized'),
             default => new TelegramException('failed'),
         };
+
+        $this->reportToAdmin($exception->reason, $method, $payload, $response->status());
+
+        throw $exception;
+    }
+
+    /**
+     * Forward an unexpected bot error to the administrator's Telegram id. Transient or expected
+     * outcomes (rate limit, supergroup migration) and users who blocked the bot are not reported.
+     *
+     * @param  array<string, mixed>  $payload
+     */
+    protected function reportToAdmin(string $reason, string $method, array $payload, ?int $status = null): void
+    {
+        $chatId = isset($payload['chat_id']) ? (int) $payload['chat_id'] : 0;
+
+        if (in_array($reason, ['rate_limited', 'migrated'], true) || ($reason === 'bot_blocked' && $chatId > 0)) {
+            return;
+        }
+
+        app(TelegramAdminAlerts::class)->report($reason, $method.($status !== null ? ' (HTTP '.$status.')' : '').($chatId !== 0 ? ' chat '.$chatId : ''), $method.'|'.$chatId);
+    }
+
+    /**
+     * Whether the bot receives every message in groups (privacy mode off), from getMe; cached for an
+     * hour. Null when Telegram cannot be asked.
+     */
+    public function canReadAllGroupMessages(): ?bool
+    {
+        return Cache::remember('telegram.can_read_all_group_messages', now()->addHour(), function (): ?bool {
+            try {
+                $me = $this->getMe();
+            } catch (TelegramException) {
+                return null;
+            }
+
+            return isset($me['can_read_all_group_messages']) ? (bool) $me['can_read_all_group_messages'] : null;
+        });
     }
 
     protected function token(): ?string

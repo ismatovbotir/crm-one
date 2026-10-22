@@ -118,6 +118,9 @@ return new class extends Migration
             $table->timestamp('members_refreshed_at')->nullable();
             $table->timestamp('first_seen_at')->useCurrent();
             $table->timestamp('last_message_at')->nullable();
+            $table->bigInteger('last_from_id')->nullable();
+            $table->boolean('last_from_is_bot')->default(false);
+            $table->string('last_from_name', 255)->nullable();
             $table->foreignId('customer_id')->nullable()->constrained('partners')->nullOnDelete();
             $table->foreignId('lead_id')->nullable()->constrained()->nullOnDelete();
             $table->foreignId('merged_into_id')->nullable()->constrained('telegram_chats')->nullOnDelete();

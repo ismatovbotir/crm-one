@@ -3,10 +3,12 @@
 namespace App\Http\Controllers\Telegram;
 
 use App\Http\Controllers\Controller;
+use App\Services\Telegram\TelegramAdminAlerts;
 use App\Services\Telegram\TelegramClient;
 use App\Services\Telegram\TelegramLinks;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Throwable;
 
 /**
  * Telegram webhook (Spec 03 4.6, AC-7, AC-11): stateless (api group), 503 while the bot is off,
@@ -27,7 +29,14 @@ class WebhookController extends Controller
             return response()->json(['ok' => false], 403);
         }
 
-        $links->handle((array) $request->json()->all());
+        try {
+            $links->handle((array) $request->json()->all());
+        } catch (Throwable $exception) {
+            // Telegram retries a failed update; the admin hears about it once per 15 minutes.
+            app(TelegramAdminAlerts::class)->report('webhook_exception', class_basename($exception).': '.$exception->getMessage(), get_class($exception).'|'.$exception->getLine());
+
+            throw $exception;
+        }
 
         return response()->json(['ok' => true]);
     }

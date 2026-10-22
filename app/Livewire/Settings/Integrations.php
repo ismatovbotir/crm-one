@@ -15,6 +15,7 @@ use App\Models\Setting;
 use App\Services\OneC\Customers\CustomerOutbox;
 use App\Services\OneC\OneCSettings;
 use App\Services\OneC\Outbox\OneCOutbox;
+use App\Services\OneC\SimpleToken;
 use Illuminate\Contracts\View\View;
 use Illuminate\Database\Eloquent\Collection;
 use Livewire\Attributes\Computed;
@@ -179,6 +180,17 @@ class Integrations extends Component
         session()->flash('status', __('integration.tokens.revoked'));
     }
 
+    /**
+     * Generate the 1C API token, or replace it: the previous one stops working immediately.
+     */
+    public function refreshSimpleToken(SimpleToken $simple): void
+    {
+        $this->authorize('manage', Setting::class);
+        $simple->refresh(auth()->user());
+        unset($this->tokens);
+        session()->flash('status', __('integration.simple.refreshed'));
+    }
+
     public function dismissIssued(): void
     {
         $this->issuedToken = null;
@@ -246,9 +258,11 @@ class Integrations extends Component
         return IntegrationToken::query()->with('creator')->latest('id')->get();
     }
 
-    public function render(OneCSettings $settings): View
+    public function render(OneCSettings $settings, SimpleToken $simple): View
     {
         return view('livewire.settings.integrations', [
+            'simpleToken' => $simple->plain(),
+            'simpleTokenExpires' => $simple->model()?->expires_at,
             'apiBaseUrl' => $settings->apiBaseUrl(),
             'abilities' => IntegrationAbility::cases(),
             'feeds' => IntegrationFeed::statuses(),

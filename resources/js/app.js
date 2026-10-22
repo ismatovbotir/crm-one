@@ -1,3 +1,5 @@
+import './label-designer.js';
+
 /*
  * Alpine components for the CSP-safe Alpine build (config livewire.csp_safe): expressions in
  * Blade stay simple (property names, method calls); logic lives here, so script-src needs no

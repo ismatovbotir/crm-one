@@ -37,7 +37,7 @@ class TelegramChats
     /**
      * @param  array<string, mixed>  $chat  Telegram Chat object
      */
-    public function observeChat(array $chat, bool $message = true): ?TelegramChat
+    public function observeChat(array $chat, bool $message = true, array $from = []): ?TelegramChat
     {
         $chatId = (int) ($chat['id'] ?? 0);
 
@@ -65,6 +65,14 @@ class TelegramChats
 
         if ($message) {
             $model->last_message_at = now();
+
+            // The sender of the latest message (a person, a bot, or an anonymous admin account).
+            if ((int) ($from['id'] ?? 0) !== 0) {
+                $model->last_from_id = (int) $from['id'];
+                $model->last_from_is_bot = (bool) ($from['is_bot'] ?? false);
+                $name = array_filter([trim((string) ($from['first_name'] ?? '')), trim((string) ($from['last_name'] ?? '')), isset($from['username']) ? '@'.$from['username'] : '']);
+                $model->last_from_name = mb_substr(implode(' ', $name), 0, 255) ?: null;
+            }
         }
 
         $model->save();
@@ -73,7 +81,8 @@ class TelegramChats
     }
 
     /**
-     * The person behind a Telegram User object; bots are never recorded (returns null).
+     * The Telegram account behind a User object. Bots are recorded too (is_bot) so their id and name are
+     * known, but they never become members, leads or matches; null only when there is no valid id.
      *
      * @param  array<string, mixed>  $from
      */
@@ -81,7 +90,7 @@ class TelegramChats
     {
         $userId = (int) ($from['id'] ?? 0);
 
-        if ($userId <= 0 || (bool) ($from['is_bot'] ?? false)) {
+        if ($userId <= 0) {
             return null;
         }
 
@@ -91,7 +100,7 @@ class TelegramChats
             'last_name' => isset($from['last_name']) ? mb_substr((string) $from['last_name'], 0, 120) : $contact->last_name,
             'username' => isset($from['username']) ? mb_substr((string) $from['username'], 0, 64) : $contact->username,
             'language_code' => isset($from['language_code']) ? mb_substr((string) $from['language_code'], 0, 10) : $contact->language_code,
-            'is_bot' => false,
+            'is_bot' => (bool) ($from['is_bot'] ?? false),
         ]);
 
         // A staff or portal user is matched by the Telegram id of their own link, never by name.
@@ -166,6 +175,11 @@ class TelegramChats
             }
         }
 
+        // Added to a group with Telegram's privacy mode on: the bot sees only commands and replies, not every message.
+        if ($status === TelegramBotStatus::Member && $previous === TelegramBotStatus::Removed && $this->client->canReadAllGroupMessages() === false) {
+            app(TelegramAdminAlerts::class)->report('group_read_limited', (string) $chat->title, 'group|'.$chat->chat_id);
+        }
+
         return $chat;
     }
 
@@ -179,7 +193,7 @@ class TelegramChats
         $chat = $this->observeChat((array) ($update['chat'] ?? []), false);
         $contact = $this->observeContact((array) data_get($update, 'new_chat_member.user', []));
 
-        if ($chat !== null && $contact !== null && $chat->isGroup()) {
+        if ($chat !== null && $contact !== null && ! $contact->is_bot && $chat->isGroup()) {
             $this->observeMember($chat, $contact, TelegramMemberRole::fromTelegram((string) data_get($update, 'new_chat_member.status')), 'chat_member');
         }
     }
@@ -194,7 +208,7 @@ class TelegramChats
         foreach ((array) ($message['new_chat_members'] ?? []) as $user) {
             $contact = $this->observeContact((array) $user);
 
-            if ($contact !== null) {
+            if ($contact !== null && ! $contact->is_bot) {
                 $this->observeMember($chat, $contact, TelegramMemberRole::Member, 'message');
             }
         }
@@ -202,7 +216,7 @@ class TelegramChats
         if (isset($message['left_chat_member'])) {
             $contact = $this->observeContact((array) $message['left_chat_member']);
 
-            if ($contact !== null) {
+            if ($contact !== null && ! $contact->is_bot) {
                 $this->observeMember($chat, $contact, TelegramMemberRole::Left, 'message');
             }
         }
@@ -294,7 +308,7 @@ class TelegramChats
         foreach ($admins as $admin) {
             $contact = $this->observeContact((array) ($admin['user'] ?? []));
 
-            if ($contact !== null) {
+            if ($contact !== null && ! $contact->is_bot) {
                 $this->observeMember($chat, $contact, TelegramMemberRole::fromTelegram((string) ($admin['status'] ?? 'administrator')), 'administrators');
                 $seen++;
             }

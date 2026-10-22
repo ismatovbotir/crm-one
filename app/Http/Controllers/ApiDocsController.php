@@ -13,8 +13,8 @@ use Illuminate\Support\Facades\Gate;
 
 /**
  * 1C integration API documentation (Swagger UI at /api/docs, raw spec at /api/docs/openapi.json
- * and .yaml). Never public, in every environment: only signed-in staff with the
- * `integration.docs` permission (administrators and the IT department). The spec holds example values only;
+ * and .yaml). Open without login only when APP_ENV=local; in every other environment only signed-in
+ * staff with the `integration.docs` permission (administrators and the IT department). The spec holds example values only;
  * "Try it out" is disabled in the UI, so no token is ever entered or embedded here.
  */
 class ApiDocsController extends Controller
@@ -48,6 +48,10 @@ class ApiDocsController extends Controller
 
     protected function guard(Request $request): ?RedirectResponse
     {
+        if (app()->environment('local')) {
+            return null;
+        }
+
         if ($request->user() === null) {
             return redirect()->guest(route('login'));
         }

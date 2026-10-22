@@ -24,6 +24,7 @@ use App\Models\StockOffAct;
 use App\Models\User;
 use App\Models\Warehouse;
 use App\Services\Stock\Exceptions\StockOffException;
+use App\Support\Money;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
@@ -178,6 +179,24 @@ class StockOffActTest extends TestCase
         $manage->updateClaim($receiptAct->fresh(), ['claim_status' => 'settled']);
         $this->assertNotNull($receiptAct->fresh()->claim_settled_at);
         $this->assertSame('CL-77', $receiptAct->fresh()->claim_ref);
+    }
+
+    public function test_warehouse_staff_see_quantities_but_not_the_value_of_an_act(): void
+    {
+        $item = Item::factory()->create(['is_serialized' => false]);
+        ItemStock::factory()->create(['item_id' => $item->id, 'warehouse_id' => $this->warehouse->id, 'quantity' => '10', 'cost_minor' => 1_000_000, 'cost_currency' => 'UZS']);
+        $manage = app(ManageStockOffAct::class);
+        $act = $manage->create(['warehouse_id' => $this->warehouse->id, 'reason' => 'lost'], $this->stock);
+        $manage->addLine($act, $item, '3');
+        $this->assertSame(['UZS' => 300_000], $act->fresh()->totals);
+        $value = Money::of(300_000, 'UZS')->format();
+
+        Livewire::actingAs($this->stock)->test(StockOffActShow::class, ['act' => $act])->assertDontSee($value);
+        Livewire::actingAs($this->head)->test(StockOffActShow::class, ['act' => $act])->assertDontSee($value);
+        Livewire::actingAs(User::factory()->accountant()->create())->test(StockOffActShow::class, ['act' => $act])->assertSee($value);
+
+        $this->actingAs($this->head)->get(route('stock-off.print', ['act' => $act]))->assertOk()->assertDontSee(__('documents.stock_off.value'));
+        $this->actingAs(User::factory()->accountant()->create())->get(route('stock-off.print', ['act' => $act]))->assertOk()->assertSee(__('documents.stock_off.value'));
     }
 
     public function test_screens_print_evidence_and_permissions(): void

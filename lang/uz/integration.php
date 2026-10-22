@@ -78,6 +78,18 @@ return [
         'feeds_title' => 'Oqimlar holati',
     ],
 
+    'simple' => [
+        'title' => '1C API tokeni',
+        'help' => '1C :url manziliga ma’lumot yuborishi uchun bitta bearer token. Uni 1C ga nusxalang. Imzo (HMAC) kerak emas.',
+        'refresh' => 'Tokenni yangilash',
+        'refresh_confirm' => 'Yangi token yaratilsinmi? Joriy token darhol ishlamay qoladi, shuning uchun uni 1C da zudlik bilan yangilang.',
+        'refreshed' => 'Yangi 1C API tokeni yaratildi. Oldingisi endi ishlamaydi.',
+        'header' => 'Sarlavhada yuboring',
+        'expires' => ':date gacha amal qiladi',
+        'none' => '1C API tokeni hali yo‘q (yoki muddati tugagan).',
+        'generate' => 'Token yaratish',
+    ],
+
     'tokens' => [
         'title' => 'API tokenlari',
         'help' => 'Tokenga faqat kerakli huquqlarni bering. Almashtirish: yangi token yarating, 1C ni unga o‘tkazing, so‘ng eskisini bekor qiling.',

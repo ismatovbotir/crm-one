@@ -67,6 +67,7 @@ return new class extends Migration
             $table->id();
             $table->string('sku', 64);
             $table->string('article', 64)->nullable();
+            $table->string('barcode', 64)->nullable();
             $table->string('accountant_code', 64)->nullable();
             $table->string('class_code', 32)->nullable();
             $table->string('package_code', 32)->nullable();
@@ -120,6 +121,7 @@ return new class extends Migration
             $table->index('is_active');
             $table->index('name');
             $table->index('article');
+            $table->index('barcode');
             $table->index(['is_active', 'category_id']);
         });
         SchemaChecks::add('items', [
@@ -304,10 +306,23 @@ return new class extends Migration
             $table->boolean('is_damaged')->default(false);
             $table->index(['batch_id', 'row_no']);
         });
+
+        Schema::create('label_templates', function (Blueprint $table) {
+            $table->id();
+            $table->string('name', 100);
+            $table->decimal('width_mm', 6, 2);
+            $table->decimal('height_mm', 6, 2);
+            $table->json('elements');
+            $table->boolean('is_default')->default(false);
+            $table->foreignId('created_by')->nullable()->constrained('users')->nullOnDelete();
+            $table->timestamps();
+            $table->index('is_default');
+        });
     }
 
     public function down(): void
     {
+        Schema::dropIfExists('label_templates');
         Schema::dropIfExists('serial_import_rows');
         Schema::dropIfExists('serial_import_batches');
         Schema::dropIfExists('serial_events');

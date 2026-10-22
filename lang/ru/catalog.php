@@ -57,6 +57,7 @@ return [
             'vat' => 'НДС',
             'description' => 'Описание',
             'min_order_qty' => 'Минимальное количество заказа',
+            'barcode' => 'Штрихкод',
             'order_step' => 'Шаг заказа',
             'warranty_months' => 'Гарантия, месяцев',
             'hs_code' => 'Код ТН ВЭД',

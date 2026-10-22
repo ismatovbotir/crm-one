@@ -5,8 +5,6 @@
         $dateFormat = \App\Enums\Locale::current()->dateFormat();
         $tabs = $this->tabs();
         $sale = $item->salePrice();
-        $purchase = $item->purchasePrice();
-        $stockCost = $item->stockCostPrice();
     @endphp
 
     <a href="{{ route('items.index') }}" wire:navigate class="link text-sm">&larr; {{ __('catalog.items.back') }}</a>
@@ -64,7 +62,7 @@
             <p class="mt-1 text-xs text-muted">{{ __('catalog.items.local_fields_hint') }}</p>
         </div>
         @can('updateLocalFields', $item)
-            <form wire:submit="saveLocalFields" class="grid gap-4 p-6 sm:grid-cols-[1fr_1fr_auto] sm:items-start" novalidate>
+            <form wire:submit="saveLocalFields" class="grid gap-4 p-6 sm:grid-cols-[1fr_1fr_1fr_auto] sm:items-start" novalidate>
                 <div>
                     <label for="min_order_qty" class="form-label">{{ __('catalog.items.fields.min_order_qty') }}</label>
                     <input wire:model="min_order_qty" id="min_order_qty" type="text" inputmode="decimal" class="form-input" placeholder="{{ __('common.optional') }}">
@@ -75,12 +73,18 @@
                     <input wire:model="order_step" id="order_step" type="text" inputmode="decimal" class="form-input" placeholder="{{ __('common.optional') }}">
                     @error('order_step') <p class="form-error">{{ $message }}</p> @enderror
                 </div>
+                <div>
+                    <label for="barcode" class="form-label">{{ __('catalog.items.fields.barcode') }}</label>
+                    <input wire:model="barcode" id="barcode" type="text" maxlength="64" class="form-input font-mono" placeholder="{{ __('common.optional') }}">
+                    @error('barcode') <p class="form-error">{{ $message }}</p> @enderror
+                </div>
                 <button type="submit" class="btn btn-primary sm:mt-6" wire:loading.attr="disabled">{{ __('common.save') }}</button>
             </form>
         @else
             <dl class="grid gap-4 p-6 text-sm sm:grid-cols-2">
                 <div><dt class="text-xs font-medium tracking-wide text-muted uppercase">{{ __('catalog.items.fields.min_order_qty') }}</dt><dd class="mt-1 text-ink">{{ $item->min_order_qty !== null ? $formatter->quantity((string) $item->min_order_qty) : '—' }}</dd></div>
                 <div><dt class="text-xs font-medium tracking-wide text-muted uppercase">{{ __('catalog.items.fields.order_step') }}</dt><dd class="mt-1 text-ink">{{ $item->order_step !== null ? $formatter->quantity((string) $item->order_step) : '—' }}</dd></div>
+                <div><dt class="text-xs font-medium tracking-wide text-muted uppercase">{{ __('catalog.items.fields.barcode') }}</dt><dd class="mt-1 font-mono text-ink">{{ $item->barcode ?? '—' }}</dd></div>
             </dl>
         @endcan
     </section>
@@ -95,36 +99,13 @@
             </div>
         @elseif ($tab === 'prices')
             <div class="card" data-tab-panel="prices">
-                <dl class="grid gap-x-6 gap-y-4 p-6 text-sm sm:grid-cols-2 lg:grid-cols-4" data-item-prices>
+                <dl class="grid gap-x-6 gap-y-4 p-6 text-sm sm:grid-cols-2" data-item-prices>
                     <div>
                         <dt class="text-xs font-medium tracking-wide text-muted uppercase">{{ __('catalog.items.sale_price') }}</dt>
                         <dd class="mt-1 text-lg font-semibold tabular-nums text-ink" data-sale-price>{{ $sale?->format() ?? __('catalog.items.no_price') }}</dd>
                         @if ($sale)
                             <dd class="text-xs text-muted">{{ $item->prices_include_vat ? __('catalog.items.incl_vat') : __('catalog.items.excl_vat') }}</dd>
                         @endif
-                    </div>
-                    <div>
-                        <dt class="text-xs font-medium tracking-wide text-muted uppercase">{{ __('catalog.items.purchase_price') }}</dt>
-                        <dd class="mt-1 text-lg font-semibold tabular-nums text-ink" data-purchase-price>{{ $purchase?->format() ?? __('catalog.items.no_price') }}</dd>
-                    </div>
-                    <div>
-                        <dt class="text-xs font-medium tracking-wide text-muted uppercase">{{ __('catalog.items.stock_cost_price') }}</dt>
-                        <dd class="mt-1 text-lg font-semibold tabular-nums text-ink" data-stock-cost-price>{{ $stockCost?->format() ?? __('catalog.items.no_cost') }}</dd>
-                        <dd class="text-xs text-muted">{{ __('catalog.items.stock_cost_hint') }}</dd>
-                    </div>
-                    <div>
-                        <dt class="text-xs font-medium tracking-wide text-muted uppercase">{{ __('catalog.items.margin') }}</dt>
-                        @php($cost = $item->costBasis((string) $sale?->currency))
-                        @php($saleNet = $sale ? \App\Services\Pricing\ItemPricing::toBasis($sale->amount, $item->prices_include_vat, false, $item->is_vat_exempt ? 0 : $item->tax_rate_bp) : null)
-                        <dd class="mt-1 text-lg font-semibold tabular-nums text-ink" data-item-margin>
-                            @if ($sale && $cost && $saleNet > 0)
-                                {{ \App\Support\Money::of($saleNet - $cost->amount, $sale->currency)->format() }}
-                                <span class="text-sm font-normal text-muted">({{ $formatter->percent(bcdiv(bcmul((string) ($saleNet - $cost->amount), '100', 2), (string) $saleNet, 2)) }})</span>
-                            @else
-                                —
-                            @endif
-                        </dd>
-                        <dd class="text-xs text-muted">{{ __('catalog.items.margin_hint') }}</dd>
                     </div>
                 </dl>
                 <div class="border-t border-line">
@@ -138,7 +119,6 @@
                                 <th scope="col" class="px-6 py-3 text-right">{{ __('catalog.stock.quantity') }}</th>
                                 <th scope="col" class="px-6 py-3 text-right">{{ __('catalog.stock.reserved') }}</th>
                                 <th scope="col" class="px-6 py-3 text-right">{{ __('catalog.stock.available') }}</th>
-                                <th scope="col" class="px-6 py-3 text-right">{{ __('catalog.stock.cost') }}</th>
                                 <th scope="col" class="px-6 py-3">{{ __('catalog.stock.as_of') }}</th>
                             </tr>
                         </thead>
@@ -154,7 +134,6 @@
                                         @endif
                                         {{ $formatter->quantity($stock->available()) }}
                                     </td>
-                                    <td class="px-6 py-2 text-right whitespace-nowrap tabular-nums text-ink" data-stock-cost>{{ $stock->cost_minor !== null && $stock->cost_currency ? \App\Support\Money::of($stock->cost_minor, $stock->cost_currency)->format() : '—' }}</td>
                                     <td class="px-6 py-2 text-muted">{{ $stock->as_of->translatedFormat(\App\Enums\Locale::current()->dateTimeFormat()) }}</td>
                                 </tr>
                             @endforeach

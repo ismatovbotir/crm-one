@@ -25,6 +25,14 @@ class StockOffActPolicy
         return $this->viewAny($user);
     }
 
+    /**
+     * Whether the act's money (value of the written-off goods) is shown; warehouse staff see quantities only.
+     */
+    public function viewValue(User $user): bool
+    {
+        return PermissionMap::allows($user, 'stock_off.view_value');
+    }
+
     public function create(User $user): bool
     {
         return PermissionMap::allows($user, 'stock_off.create');

@@ -10,6 +10,7 @@ use App\Models\TelegramChat;
 use App\Models\TelegramDestination;
 use App\Models\User;
 use App\Notifications\TelegramBotRemoved;
+use App\Services\Telegram\TelegramAdminAlerts;
 use Illuminate\Support\Collection;
 
 /**
@@ -39,6 +40,8 @@ class InternalAlerts
         foreach (self::admins() as $admin) {
             $admin->notify(new TelegramBotRemoved($chat));
         }
+
+        app(TelegramAdminAlerts::class)->report('destination_failed', $destination->name.': '.$reason, 'dest|'.$destination->id.'|'.$reason);
     }
 
     /**

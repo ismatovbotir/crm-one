@@ -134,27 +134,29 @@ class ItemTest extends TestCase
         $this->assertSame('100.000', $item->fresh()->load('stocks')->availableStock(), 'Negative balances count as 0.');
     }
 
-    public function test_item_page_shows_sale_purchase_and_stock_cost_price_with_margin(): void
+    public function test_item_page_shows_only_the_sale_price_and_stock_quantities(): void
     {
         $this->actingAs(User::factory()->sales()->create());
         app()->setLocale('en');
         $item = Item::factory()->priced('200.00', 'UZS', false, '150.00')->create(['tax_rate_bp' => 1200]);
         ItemStock::factory()->for($item)->create(['quantity' => '10', 'cost_minor' => 120000, 'cost_currency' => 'UZS']);
         ItemStock::factory()->for($item)->create(['quantity' => '30', 'cost_minor' => 420000, 'cost_currency' => 'UZS']);
-        ItemStock::factory()->for($item)->create(['quantity' => '5', 'cost_minor' => null, 'cost_currency' => null]);
 
-        // (1 200.00 + 4 200.00) / 40 = 135.00; margin 200.00 - 135.00 = 65.00 (32.5%).
+        // The stored cost basis still feeds offer margins; it is never shown on the item page.
         $this->assertSame(13500, $item->fresh()->stockCostPrice()?->amount);
 
         Livewire::test(Show::class, ['item' => $item])
             ->set('tab', 'prices')
             ->assertSee('200.00')
-            ->assertSee('150.00')
-            ->assertSee('135.00')
-            ->assertSee('65.00')
-            ->assertSee('32.5%')
-            ->assertSee(__('catalog.stock.cost'))
-            ->assertSee('4,200.00')
+            ->assertSee(__('catalog.items.sale_price'))
+            ->assertSee(__('catalog.stock.quantity'))
+            ->assertDontSee('150.00')
+            ->assertDontSee('135.00')
+            ->assertDontSee('4,200.00')
+            ->assertDontSee(__('catalog.items.purchase_price'))
+            ->assertDontSee(__('catalog.items.stock_cost_price'))
+            ->assertDontSee(__('catalog.items.margin'))
+            ->assertDontSee(__('catalog.stock.cost'))
             ->set('tab', 'activity')
             ->assertOk();
     }

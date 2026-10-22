@@ -90,6 +90,7 @@ class StockPrintController extends Controller
 
         return $renderer->print('documents.stock_off_act', [
             'act' => $act,
+            'showValue' => Gate::allows('viewValue', StockOffAct::class),
             'seller' => CompanyProfile::seller($language),
             'inlineMax' => BusinessSettings::int('serials.print_inline_max'),
         ], $language, __('documents.stock_off.title', [], $language->value).' '.$act->number, route('stock-off.show', $act));

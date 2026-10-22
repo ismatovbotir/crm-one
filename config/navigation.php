@@ -73,6 +73,7 @@ return [
                     'children' => [
                         ['label' => 'nav.items', 'route' => 'items.index', 'active' => 'items.*'],
                         ['label' => 'nav.categories', 'route' => 'categories.index'],
+                        ['label' => 'nav.label_print', 'route' => 'labels.print', 'active' => 'labels.*'],
                         ['label' => 'nav.serials', 'route' => 'serials.index', 'active' => 'serials.*', 'can' => ['viewAny', ItemSerial::class]],
                     ],
                 ],
@@ -154,6 +155,7 @@ return [
                         ['label' => 'nav.reference_lists', 'route' => 'settings.reference-lists', 'can' => ['manageReferenceLists']],
                         ['label' => 'nav.settings_company', 'route' => 'settings.company', 'can' => ['manage', CompanyBankAccount::class]],
                         ['label' => 'nav.settings_agreement_templates', 'route' => 'settings.agreement-templates', 'active' => 'settings.agreement-templates*', 'can' => ['manage', AgreementTemplate::class]],
+                        ['label' => 'nav.settings_label_templates', 'route' => 'settings.label-templates', 'active' => 'settings.label-templates*', 'can' => ['manage', Setting::class]],
                         ['label' => 'nav.settings_integrations', 'route' => 'settings.integrations', 'can' => ['manage', Setting::class]],
                         ['label' => 'nav.settings_api_docs', 'route' => 'api-docs', 'new_window' => true, 'can' => ['viewApiDocs']],
                         ['label' => 'nav.settings_telegram', 'route' => 'settings.telegram', 'can' => ['manage', Setting::class]],

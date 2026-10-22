@@ -38,6 +38,8 @@ return [
     'settings' => 'Sozlamalar',
     'settings_appearance' => 'Tashqi ko‘rinish',
     'settings_company' => 'Kompaniya profili',
+    'label_print' => 'Narxnoma chop etish',
+    'settings_label_templates' => 'Yorliq shablonlari',
     'settings_agreement_templates' => 'Shartnoma shablonlari',
     'settings_integrations' => 'Integratsiyalar (1C)',
     'settings_api_docs' => 'API hujjatlari',

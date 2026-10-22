@@ -57,6 +57,7 @@ return [
             'vat' => 'VAT',
             'description' => 'Description',
             'min_order_qty' => 'Minimum order quantity',
+            'barcode' => 'Barcode',
             'order_step' => 'Order step',
             'warranty_months' => 'Warranty, months',
             'hs_code' => 'HS code (TN VED)',

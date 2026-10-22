@@ -286,6 +286,8 @@ return [
         'stock.reconciliation' => ['role:manager' => 'all'] + $stock + $warehouseHead + $accountant + $controller,
         // Stock-off acts (Spec 06 section 27): write-offs and damage. Maker != checker (policy).
         'stock_off.view' => ['role:manager' => 'all', 'dept:management:*' => 'all', 'dept:purchase:*' => 'all'] + $stock + $warehouseHead + $accountant + $controller,
+        // Money on an act (value of the written-off goods): warehouse staff see quantities only.
+        'stock_off.view_value' => ['role:admin' => 'all', 'role:manager' => 'all', 'dept:management:*' => 'all', 'dept:purchase:*' => 'all'] + $accountant + $controller,
         'stock_off.create' => $stock + $warehouseHead,
         'stock_off.approve' => ['role:manager' => 'all'] + $warehouseHead,
         // Above the value limit (Settings > Accounting): CEO (management head) or finance.

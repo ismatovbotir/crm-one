@@ -146,7 +146,8 @@ class TelegramGroupTest extends TestCase
         $this->groupMessage($this->user(9998, 'Helper', 'helper_bot', true), 'Automated message');
 
         $this->assertSame(0, Lead::query()->count(), 'Service messages and bot messages never open a lead.');
-        $this->assertFalse(TelegramContact::query()->where('telegram_user_id', 9999)->exists());
+        $this->assertTrue(TelegramContact::query()->where('telegram_user_id', 9999)->sole()->is_bot, 'Bots are saved as contacts (is_bot) ...');
+        $this->assertSame(0, TelegramChatMember::query()->whereHas('telegramContact', fn ($q) => $q->where('is_bot', true))->count(), '... but are never members.');
         $member = TelegramChatMember::query()->whereHas('telegramContact', fn ($q) => $q->where('telegram_user_id', 9002))->sole();
         $this->assertSame(TelegramMemberRole::Left, $member->role);
     }

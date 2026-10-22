@@ -25,6 +25,28 @@
         </div>
     @endif
 
+    <section class="card space-y-3 p-5" aria-labelledby="simple-token-heading" data-simple-token>
+        <div>
+            <h2 id="simple-token-heading" class="font-semibold text-ink">{{ __('integration.simple.title') }}</h2>
+            <p class="text-xs text-muted">{{ __('integration.simple.help', ['url' => $apiBaseUrl]) }}</p>
+        </div>
+        @if ($simpleToken)
+            <div class="flex flex-col gap-2 sm:flex-row sm:items-center" x-data="copyField">
+                <label for="simple-token" class="sr-only">{{ __('integration.tokens.token') }}</label>
+                <input id="simple-token" type="text" readonly value="{{ $simpleToken }}" class="form-input font-mono text-xs" x-ref="token" @focus="selectAll" data-simple-token-value>
+                <button type="button" class="btn btn-secondary shrink-0" @click="copy">
+                    <span x-show="notCopied">{{ __('integration.tokens.copy') }}</span>
+                    <span x-show="copied" x-cloak>{{ __('integration.tokens.copied') }}</span>
+                </button>
+                <button type="button" wire:click="refreshSimpleToken" wire:confirm="{{ __('integration.simple.refresh_confirm') }}" class="btn btn-danger-outline shrink-0">{{ __('integration.simple.refresh') }}</button>
+            </div>
+            <p class="text-xs text-muted">{{ __('integration.simple.header') }} <code class="font-mono">Authorization: Bearer &lt;token&gt;</code> · {{ __('integration.simple.expires', ['date' => $simpleTokenExpires?->translatedFormat(\App\Enums\Locale::current()->dateFormat())]) }}</p>
+        @else
+            <p class="text-sm text-ink">{{ __('integration.simple.none') }}</p>
+            <div><button type="button" wire:click="refreshSimpleToken" class="btn btn-primary">{{ __('integration.simple.generate') }}</button></div>
+        @endif
+    </section>
+
     <div class="grid gap-6 xl:grid-cols-2">
         <form wire:submit="saveSettings" class="card" novalidate>
             <div class="space-y-5 p-6">

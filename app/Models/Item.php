@@ -29,7 +29,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
  * @property string|null $order_step
  */
 #[Fillable([
-    'sku', 'article', 'name', 'description', 'type', 'category_id', 'unit_id', 'tax_rate_bp', 'is_vat_exempt',
+    'sku', 'article', 'barcode', 'name', 'description', 'type', 'category_id', 'unit_id', 'tax_rate_bp', 'is_vat_exempt',
     'min_order_qty', 'order_step', 'is_active', 'external_id', 'external_code', 'synced_at',
     'accountant_code', 'class_code', 'package_code', 'is_serialized', 'warranty_months',
     'hs_code', 'gross_weight_kg', 'net_weight_kg', 'volume_m3', 'country_of_origin',

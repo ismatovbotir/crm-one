@@ -29,7 +29,9 @@
                 <th scope="col" class="border border-black px-2 py-1.5">{{ __('documents.line_no') }}</th>
                 <th scope="col" class="border border-black px-2 py-1.5">{{ __('documents.item') }}</th>
                 <th scope="col" class="border border-black px-2 py-1.5 text-right">{{ __('documents.stock_off.quantity') }}</th>
-                <th scope="col" class="border border-black px-2 py-1.5 text-right">{{ __('documents.stock_off.value') }}</th>
+                @if ($showValue)
+                    <th scope="col" class="border border-black px-2 py-1.5 text-right">{{ __('documents.stock_off.value') }}</th>
+                @endif
             </tr>
         </thead>
         <tbody>
@@ -44,7 +46,9 @@
                         @if ($line->note) <p class="text-[11px]">{{ $line->note }}</p> @endif
                     </td>
                     <td class="border border-black px-2 py-1.5 text-right">{{ $doc->quantity((string) $line->quantity) }}</td>
+                    @if ($showValue)
                     <td class="border border-black px-2 py-1.5 text-right">{{ $line->value_minor !== null ? $doc->money(\App\Support\Money::of($line->value_minor, (string) $line->currency)->toMajor(), (string) $line->currency) : '—' }}</td>
+                    @endif
                 </tr>
             @endforeach
         </tbody>

@@ -2,12 +2,24 @@
     <p class="text-sm text-muted">{{ __('telegram.chats.intro') }}</p>
     <p class="text-sm text-muted" data-privacy-note>{{ __('telegram.chats.privacy_note') }}</p>
 
+    @if ($botInfo['username'] || $botInfo['id'])
+        <p class="text-sm text-ink" data-bot-info>{{ __('telegram.chats.bot_user') }}: <span class="font-semibold">{{ $botInfo['name'] }}</span> @if ($botInfo['username'])<span class="font-mono">&#64;{{ $botInfo['username'] }}</span>@endif @if ($botInfo['id'])<span class="font-mono text-muted">· id {{ $botInfo['id'] }}</span>@endif</p>
+    @endif
+
     <x-flash />
 
     <div class="card flex flex-wrap items-end gap-4 p-4">
         <div class="min-w-48 flex-1">
             <label for="tg-chats-search" class="form-label">{{ __('common.search') }}</label>
             <input wire:model.live.debounce.300ms="search" id="tg-chats-search" type="search" class="form-input">
+        </div>
+        <div>
+            <label for="tg-chats-kind" class="form-label">{{ __('telegram.chats.kind') }}</label>
+            <select wire:model.live="kind" id="tg-chats-kind" class="form-input">
+                @foreach ($kinds as $value => $label)
+                    <option value="{{ $value }}">{{ $label }}</option>
+                @endforeach
+            </select>
         </div>
         <div>
             <label for="tg-chats-filter" class="form-label">{{ __('telegram.chats.filter') }}</label>
@@ -24,7 +36,9 @@
             <thead class="bg-sidebar text-left text-xs font-semibold tracking-wide text-sidebar-text uppercase">
                 <tr>
                     <th scope="col" class="px-4 py-3">{{ __('telegram.chats.columns.chat') }}</th>
+                    <th scope="col" class="px-4 py-3">{{ __('telegram.chats.columns.chat_id') }}</th>
                     <th scope="col" class="px-4 py-3">{{ __('telegram.chats.columns.type') }}</th>
+                    <th scope="col" class="px-4 py-3">{{ __('telegram.chats.columns.last_sender') }}</th>
                     <th scope="col" class="px-4 py-3">{{ __('telegram.chats.columns.bot') }}</th>
                     <th scope="col" class="px-4 py-3">{{ __('telegram.chats.columns.company') }}</th>
                     <th scope="col" class="px-4 py-3">{{ __('telegram.chats.columns.lead') }}</th>
@@ -39,7 +53,16 @@
                             {{ $chat->displayName() }}
                             @if ($chat->mergedInto) <span class="block text-xs text-muted">{{ __('telegram.chats.merged_into', ['name' => $chat->mergedInto->displayName()]) }}</span>@endif
                         </td>
+                        <td class="px-4 py-3 font-mono text-xs text-ink" data-chat-id>{{ $chat->chat_id }}</td>
                         <td class="px-4 py-3">{{ $chat->type->label() }}@if ($chat->isInternal()) <x-badge tone="outline" data-internal-chat>{{ $chat->purpose->label() }}</x-badge>@endif</td>
+                        <td class="px-4 py-3" data-last-sender>
+                            @if ($chat->last_from_id)
+                                <span class="text-ink">{{ $chat->last_from_name ?? '—' }}</span> @if ($chat->last_from_is_bot)<x-badge tone="outline">{{ __('telegram.chats.bot_badge') }}</x-badge>@endif
+                                <span class="block font-mono text-xs text-muted" data-from-id>{{ $chat->last_from_id }}</span>
+                            @else
+                                <span class="text-muted">—</span>
+                            @endif
+                        </td>
                         <td class="px-4 py-3"><x-badge :tone="$chat->bot_status === \App\Enums\TelegramBotStatus::Removed ? 'danger-outline' : 'outline'">{{ $chat->bot_status->label() }}</x-badge></td>
                         <td class="px-4 py-3">
                             @if ($chat->customer)
@@ -59,7 +82,7 @@
                         <td class="px-4 py-3 text-muted">{{ $chat->last_message_at?->translatedFormat(\App\Enums\Locale::current()->dateTimeFormat()) ?? '—' }}</td>
                     </tr>
                 @empty
-                    <tr><td colspan="7" class="p-0"><x-empty-state :title="__('telegram.chats.empty')" icon="contact" /></td></tr>
+                    <tr><td colspan="9" class="p-0"><x-empty-state :title="__('telegram.chats.empty')" icon="contact" /></td></tr>
                 @endforelse
             </tbody>
         </table>

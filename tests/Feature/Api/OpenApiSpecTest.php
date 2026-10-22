@@ -114,11 +114,19 @@ class OpenApiSpecTest extends TestCase
         $this->actingAs($admin)->get(route('settings.integrations'))->assertOk()->assertSee(__('integration.docs.link'))->assertSee(route('api-docs'), false);
     }
 
-    public function test_docs_are_never_public_even_in_the_local_environment(): void
+    public function test_docs_are_open_only_in_the_local_environment(): void
     {
         $this->app['env'] = 'local';
 
-        $this->get(route('api-docs.json'))->assertRedirect(route('login'));
-        $this->get(route('api-docs'))->assertRedirect(route('login'));
+        $this->get(route('api-docs'))->assertOk();
+        $this->get(route('api-docs.json'))->assertOk()->assertJsonPath('openapi', '3.1.0');
+        $this->get(route('api-docs.yaml'))->assertOk();
+
+        foreach (['staging', 'production'] as $environment) {
+            $this->app['env'] = $environment;
+
+            $this->get(route('api-docs.json'))->assertRedirect(route('login'));
+            $this->get(route('api-docs'))->assertRedirect(route('login'));
+        }
     }
 }

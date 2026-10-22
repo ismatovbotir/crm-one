@@ -9,6 +9,7 @@ use App\Http\Controllers\DevRoleSwitchController;
 use App\Http\Controllers\ImportTemplateController;
 use App\Http\Controllers\InvoicePrintController;
 use App\Http\Controllers\ItemSerialFilesController;
+use App\Http\Controllers\LabelSheetController;
 use App\Http\Controllers\LocaleController;
 use App\Http\Controllers\MediaController;
 use App\Http\Controllers\OfferPrintController;
@@ -40,6 +41,7 @@ use App\Livewire\Cabinet;
 use App\Livewire\Catalog\Categories as CategoryIndex;
 use App\Livewire\Catalog\Items\Index as ItemIndex;
 use App\Livewire\Catalog\Items\Show as ItemShow;
+use App\Livewire\Catalog\LabelPrint;
 use App\Livewire\Counterparties\Index as CounterpartyIndex;
 use App\Livewire\Counterparties\Show as CounterpartyShow;
 use App\Livewire\Customers\Form as CustomerForm;
@@ -103,6 +105,8 @@ use App\Livewire\Settings\Appearance;
 use App\Livewire\Settings\Company;
 use App\Livewire\Settings\DataImport;
 use App\Livewire\Settings\Integrations;
+use App\Livewire\Settings\LabelTemplateEditor;
+use App\Livewire\Settings\LabelTemplates;
 use App\Livewire\Settings\ReferenceLists;
 use App\Livewire\Settings\SetupWizard;
 use App\Livewire\Settings\Telegram as TelegramSettings;
@@ -236,6 +240,8 @@ Route::middleware(['auth', EnsureUserIsActive::class, EnsureInternalUser::class,
 
     // Catalog: read-only mirror of 1C (Spec 02); only CRM-local fields are editable.
     Route::livewire('/items', ItemIndex::class)->name('items.index')->can('viewAny', Item::class);
+    Route::livewire('/labels/print', LabelPrint::class)->name('labels.print')->can('viewAny', Item::class);
+    Route::get('/labels/sheet', LabelSheetController::class)->name('labels.sheet');
     Route::livewire('/items/{item}', ItemShow::class)->name('items.show')->can('view', 'item')->withTrashed();
     Route::get('/items/{item}/serials/template', [ItemSerialFilesController::class, 'template'])->name('items.serials.template');
     Route::get('/items/{item}/serials/export', [ItemSerialFilesController::class, 'export'])->name('items.serials.export');
@@ -361,6 +367,8 @@ Route::middleware(['auth', EnsureUserIsActive::class, EnsureInternalUser::class,
     Route::livewire('/settings/integrations', Integrations::class)->name('settings.integrations')->can('manage', Setting::class);
     Route::livewire('/settings/accounting', AccountingSettings::class)->name('settings.accounting')->can('viewSettings', AccountingPeriod::class);
     Route::livewire('/settings/company', Company::class)->name('settings.company')->can('manage', CompanyBankAccount::class);
+    Route::livewire('/settings/label-templates', LabelTemplates::class)->name('settings.label-templates')->can('manage', Setting::class);
+    Route::livewire('/settings/label-templates/{template}', LabelTemplateEditor::class)->name('settings.label-templates.edit')->can('manage', Setting::class);
     Route::livewire('/settings/agreement-templates', AgreementTemplates::class)->name('settings.agreement-templates')->can('manage', AgreementTemplate::class);
     Route::livewire('/settings/agreement-templates/{template}', AgreementTemplateEditor::class)->name('settings.agreement-templates.edit')->can('manage', AgreementTemplate::class);
 

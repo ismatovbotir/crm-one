@@ -118,7 +118,7 @@ class TelegramLinks
             return; // channels and bots are ignored
         }
 
-        $chat = $chats->observeChat((array) $message['chat']);
+        $chat = $chats->observeChat((array) $message['chat'], true, $from);
         $sender = $chats->observeContact($from);
 
         if ($chat !== null && $sender !== null) {

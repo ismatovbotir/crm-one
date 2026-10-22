@@ -3,6 +3,7 @@
 namespace App\Livewire\Telegram;
 
 use App\Enums\TelegramChatType;
+use App\Models\Setting;
 use App\Models\TelegramChat;
 use App\Services\Telegram\Exceptions\TelegramException;
 use App\Services\Telegram\TelegramChats;
@@ -29,6 +30,10 @@ class ChatsIndex extends Component
     #[Url(except: '')]
     public string $filter = '';
 
+    /** '' = groups and channels, group = groups and supergroups, channel, person (private chats, admins only). */
+    #[Url(except: '')]
+    public string $kind = '';
+
     public ?int $mergeId = null;
 
     public ?int $mergeIntoId = null;
@@ -47,9 +52,15 @@ class ChatsIndex extends Component
         $term = trim($this->search);
         $like = '%'.str_replace(['%', '_'], ['\\%', '\\_'], $term).'%';
 
+        $kind = $this->kind === 'person' && ! auth()->user()->isAdmin() ? '' : $this->kind;
+
         return TelegramChat::query()->with(['customer:id,name,owner_id', 'lead:id,number,owner_id,status'])
-            ->where('type', '!=', TelegramChatType::Private->value)
-            ->when($term !== '', fn ($query) => $query->where(fn ($q) => $q->where('title', 'like', $like)->orWhere('username', 'like', $like)))
+            ->when($kind === 'person', fn ($query) => $query->where('type', TelegramChatType::Private->value))
+            ->when($kind === 'group', fn ($query) => $query->whereIn('type', [TelegramChatType::Group->value, TelegramChatType::Supergroup->value]))
+            ->when($kind === 'channel', fn ($query) => $query->where('type', TelegramChatType::Channel->value))
+            ->when($kind === '', fn ($query) => $query->where('type', '!=', TelegramChatType::Private->value))
+            ->when($term !== '', fn ($query) => $query->where(fn ($q) => $q->where('title', 'like', $like)->orWhere('username', 'like', $like)->orWhere('last_from_name', 'like', $like)
+                ->when(ctype_digit(ltrim($term, '-')), fn ($ids) => $ids->orWhere('chat_id', (int) $term)->orWhere('last_from_id', (int) $term))))
             ->when($this->filter === 'unlinked', fn ($query) => $query->whereNull('customer_id')->whereNull('merged_into_id'))
             ->when($this->filter === 'removed', fn ($query) => $query->where('bot_status', 'removed'))
             ->orderByDesc('last_message_at')->limit(self::LIMIT)->get()
@@ -87,6 +98,10 @@ class ChatsIndex extends Component
     {
         $mergeable = $this->chats->filter(fn (TelegramChat $chat): bool => $chat->merged_into_id === null && auth()->user()->can('manage', $chat))->values();
 
-        return view('livewire.telegram.chats-index', ['mergeable' => $mergeable])->title(__('telegram.chats.title'));
+        return view('livewire.telegram.chats-index', [
+            'mergeable' => $mergeable,
+            'kinds' => array_filter(['' => __('telegram.chats.kinds.all'), 'group' => __('telegram.chats.kinds.group'), 'channel' => __('telegram.chats.kinds.channel'), 'person' => auth()->user()->isAdmin() ? __('telegram.chats.kinds.person') : null]),
+            'botInfo' => ['id' => Setting::get('telegram.bot_id'), 'name' => Setting::get('telegram.bot_name'), 'username' => Setting::get('telegram.bot_username')],
+        ])->title(__('telegram.chats.title'));
     }
 }

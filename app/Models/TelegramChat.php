@@ -20,7 +20,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * @property TelegramBotStatus $bot_status
  * @property CarbonImmutable|null $last_message_at
  */
-#[Fillable(['chat_id', 'type', 'title', 'username', 'bot_status', 'member_count', 'members_refreshed_at', 'first_seen_at', 'last_message_at', 'customer_id', 'lead_id', 'merged_into_id', 'purpose'])]
+#[Fillable(['chat_id', 'type', 'title', 'username', 'bot_status', 'member_count', 'members_refreshed_at', 'first_seen_at', 'last_message_at', 'last_from_id', 'last_from_is_bot', 'last_from_name', 'customer_id', 'lead_id', 'merged_into_id', 'purpose'])]
 class TelegramChat extends Model
 {
     /**
@@ -42,6 +42,8 @@ class TelegramChat extends Model
             'members_refreshed_at' => 'immutable_datetime',
             'first_seen_at' => 'immutable_datetime',
             'last_message_at' => 'immutable_datetime',
+            'last_from_id' => 'integer',
+            'last_from_is_bot' => 'boolean',
         ];
     }
 

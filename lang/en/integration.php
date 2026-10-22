@@ -78,6 +78,18 @@ return [
         'feeds_title' => 'Feed status',
     ],
 
+    'simple' => [
+        'title' => '1C API token',
+        'help' => 'One bearer token for 1C to push data to :url. Copy it into 1C. No signature (HMAC) is needed.',
+        'refresh' => 'Refresh token',
+        'refresh_confirm' => 'Create a new token? The current one stops working immediately, so update it in 1C right away.',
+        'refreshed' => 'A new 1C API token was created. The previous one no longer works.',
+        'header' => 'Send it in the header',
+        'expires' => 'valid until :date',
+        'none' => 'No 1C API token yet (or it expired).',
+        'generate' => 'Generate token',
+    ],
+
     'tokens' => [
         'title' => 'API tokens',
         'help' => 'Give each token only the abilities it needs. Rotate: create a new token, switch 1C to it, then revoke the old one.',

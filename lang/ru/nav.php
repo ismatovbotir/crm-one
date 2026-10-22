@@ -38,6 +38,8 @@ return [
     'settings' => 'Настройки',
     'settings_appearance' => 'Оформление',
     'settings_company' => 'Профиль компании',
+    'label_print' => 'Печать ценников',
+    'settings_label_templates' => 'Шаблоны этикеток',
     'settings_agreement_templates' => 'Шаблоны договоров',
     'settings_integrations' => 'Интеграции (1С)',
     'settings_api_docs' => 'Документация API',

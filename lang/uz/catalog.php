@@ -57,6 +57,7 @@ return [
             'vat' => 'QQS',
             'description' => 'Tavsif',
             'min_order_qty' => 'Minimal buyurtma miqdori',
+            'barcode' => 'Shtrix-kod',
             'order_step' => 'Buyurtma qadami',
             'warranty_months' => 'Kafolat, oy',
             'hs_code' => 'TIF TN kodi',
